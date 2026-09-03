@@ -11,6 +11,7 @@ function formatFCFA(montant: number): string {
 
 export function StockPage() {
   const { entreprise, utilisateur } = useAuth();
+  const peutGererArticles = utilisateur?.role === "gerant" || utilisateur?.role === "comptable";
   const [articles, setArticles] = useState<Article[]>([]);
   const [recherche, setRecherche] = useState("");
   const [modaleOuverte, setModaleOuverte] = useState(false);
@@ -64,12 +65,14 @@ export function StockPage() {
     <div className="max-w-3xl mx-auto px-4 py-5">
       <div className="flex items-center justify-between mb-4">
         <h1 className="font-display text-2xl font-bold text-stone-900">Stock</h1>
-        <button
-          onClick={() => setModaleOuverte(true)}
-          className="flex items-center gap-1.5 bg-stone-900 text-white text-sm font-medium px-3.5 py-2 rounded-lg"
-        >
-          <Plus size={16} /> Nouvel article
-        </button>
+        {peutGererArticles && (
+          <button
+            onClick={() => setModaleOuverte(true)}
+            className="flex items-center gap-1.5 bg-stone-900 text-white text-sm font-medium px-3.5 py-2 rounded-lg"
+          >
+            <Plus size={16} /> Nouvel article
+          </button>
+        )}
       </div>
 
       <div className="relative mb-4">
@@ -89,9 +92,11 @@ export function StockPage() {
           return (
             <div key={article.id} className="flex items-center justify-between p-4 gap-3">
               <button
-                onClick={() => setArticleAModifier(article)}
-                className="flex items-center gap-3 min-w-0 text-left flex-1 group"
-                title="Modifier cet article"
+                onClick={() => peutGererArticles && setArticleAModifier(article)}
+                className={`flex items-center gap-3 min-w-0 text-left flex-1 group ${
+                  peutGererArticles ? "" : "cursor-default"
+                }`}
+                title={peutGererArticles ? "Modifier cet article" : undefined}
               >
                 <span
                   className={`flex items-center justify-center w-9 h-9 rounded-lg shrink-0 ${
@@ -106,7 +111,9 @@ export function StockPage() {
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-stone-900 truncate flex items-center gap-1.5">
                     {article.designation}
-                    <Pencil size={11} className="text-stone-300 opacity-0 group-hover:opacity-100 shrink-0" />
+                    {peutGererArticles && (
+                      <Pencil size={11} className="text-stone-300 opacity-0 group-hover:opacity-100 shrink-0" />
+                    )}
                   </p>
                   <p className="text-xs text-stone-400">
                     {formatFCFA(article.prix_vente)} · {article.stock_actuel} {article.unite} en stock

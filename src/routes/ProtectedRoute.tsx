@@ -3,7 +3,7 @@ import { useAuth } from "../hooks/useAuth";
 import type { ReactNode } from "react";
 
 export function ProtectedRoute({ children }: { children: ReactNode }) {
-  const { session, chargement } = useAuth();
+  const { session, utilisateur, chargement } = useAuth();
 
   if (chargement) {
     return (
@@ -15,6 +15,12 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
 
   if (!session) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (!utilisateur) {
+    // Compte authentifié mais pas encore lié à une entreprise
+    // (inscription interrompue avant la dernière étape).
+    return <Navigate to="/completer-inscription" replace />;
   }
 
   return <>{children}</>;

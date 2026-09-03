@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   Package,
   AlertTriangle,
+  TrendingDown,
   TrendingUp,
   Users,
   CircleCheck,
@@ -9,9 +10,8 @@ import {
 import { BarChart, Bar, XAxis, ResponsiveContainer, Tooltip, Cell } from "recharts";
 import { supabase } from "../../lib/supabaseClient";
 import { useAuth } from "../../hooks/useAuth";
-import { listerArticles, articlesEnAlerte } from "../../services/articlesService";
 import { listerClients, clientsAvecCreanceEnRetard } from "../../services/clientsService";
-import type { Article, Client } from "../../types";
+import type { Alerte, Client } from "../../types";
 
 function formatFCFA(montant: number): string {
   return Math.round(montant).toLocaleString("fr-FR") + " F";
@@ -19,14 +19,21 @@ function formatFCFA(montant: number): string {
 
 const NOMS_JOURS = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
 
+const ICONES_ALERTE: Record<string, typeof Package> = {
+  rupture: Package,
+  stock_bas: Package,
+  marge_faible: TrendingDown,
+};
+
 export function DashboardPage() {
-  const { entreprise } = useAuth();
+  const { entreprise, utilisateur } = useAuth();
+  const peutVoirMarge = utilisateur?.role !== "vendeur";
   const [chargement, setChargement] = useState(true);
   const [ventes7Jours, setVentes7Jours] = useState<{ jour: string; montant: number }[]>([]);
   const [caJour, setCaJour] = useState(0);
   const [nombreVentesJour, setNombreVentesJour] = useState(0);
   const [margeJour, setMargeJour] = useState(0);
-  const [articles, setArticles] = useState<Article[]>([]);
+  const [alertesStock, setAlertesStock] = useState<Alerte[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [topArticles, setTopArticles] = useState<{ nom: string; quantite: number; montant: number }[]>([]);
 
@@ -40,7 +47,7 @@ export function DashboardPage() {
       ilYA7Jours.setDate(ilYA7Jours.getDate() - 6);
       ilYA7Jours.setHours(0, 0, 0, 0);
 
-      const [{ data: ventes }, articlesData, clientsData, { data: lignesSemaine }] =
+      const [{ data: ventes }, { data: alertesData }, clientsData, { data: lignesSemaine }] =
         await Promise.all([
           supabase
             .from("ventes")
@@ -48,7 +55,15 @@ export function DashboardPage() {
             .eq("entreprise_id", entreprise!.id)
             .gte("created_at", ilYA7Jours.toISOString())
             .neq("statut", "annulee"),
-          listerArticles(),
+          // Les alertes de stock sont désormais générées automatiquement
+          // par un trigger PostgreSQL (voir migration_phase2.sql) dès
+          // qu'un article passe sous son seuil ou en rupture.
+          supabase
+            .from("alertes")
+            .select("*")
+            .eq("entreprise_id", entreprise!.id)
+            .eq("lue", false)
+            .order("created_at", { ascending: false }),
           listerClients(),
           supabase
             .from("lignes_vente")
@@ -116,7 +131,7 @@ export function DashboardPage() {
       setCaJour(totalAujourdhui);
       setNombreVentesJour(nombreAujourdhui);
       setMargeJour(margeAujourdhui);
-      setArticles(articlesData);
+      setAlertesStock((alertesData || []) as Alerte[]);
       setClients(clientsData);
       setTopArticles(top);
       setChargement(false);
@@ -125,15 +140,10 @@ export function DashboardPage() {
     charger().catch(console.error);
   }, [entreprise]);
 
-  const enRupture = useMemo(() => articles.filter((a) => a.stock_actuel <= 0), [articles]);
-  const enAlerte = useMemo(
-    () => articlesEnAlerte(articles).filter((a) => a.stock_actuel > 0),
-    [articles]
-  );
   const creances = useMemo(() => clientsAvecCreanceEnRetard(clients), [clients]);
   const totalCreances = creances.reduce((s, c) => s + c.solde_credit, 0);
 
-  const nombreCritiques = enRupture.length;
+  const nombreCritiques = alertesStock.filter((a) => a.niveau === "critique").length;
   const statutSante = nombreCritiques > 0 ? "attention" : "bon";
 
   if (chargement) {
@@ -181,10 +191,12 @@ export function DashboardPage() {
           <p className="text-xs text-stone-500">Ventes du jour</p>
           <p className="font-display text-2xl font-bold text-stone-900 mt-1">{formatFCFA(caJour)}</p>
         </div>
-        <div className="bg-white border border-stone-200 rounded-xl p-4">
-          <p className="text-xs text-stone-500">Marge du jour</p>
-          <p className="font-display text-2xl font-bold text-stone-900 mt-1">{formatFCFA(margeJour)}</p>
-        </div>
+        {peutVoirMarge && (
+          <div className="bg-white border border-stone-200 rounded-xl p-4">
+            <p className="text-xs text-stone-500">Marge du jour</p>
+            <p className="font-display text-2xl font-bold text-stone-900 mt-1">{formatFCFA(margeJour)}</p>
+          </div>
+        )}
         <div className="bg-white border border-stone-200 rounded-xl p-4">
           <p className="text-xs text-stone-500">Ventes enregistrées</p>
           <p className="font-display text-2xl font-bold text-stone-900 mt-1">{nombreVentesJour}</p>
@@ -221,28 +233,26 @@ export function DashboardPage() {
       <div className="grid sm:grid-cols-2 gap-5">
         {/* Alertes stock */}
         <div className="bg-white border border-stone-200 rounded-xl p-4">
-          <p className="font-display text-lg font-bold text-stone-900 mb-3">Alertes stock</p>
+          <p className="font-display text-lg font-bold text-stone-900 mb-3">Alertes</p>
           <div className="space-y-2">
-            {enRupture.map((a) => (
-              <div key={a.id} className="flex items-start gap-3 p-3 rounded-lg border bg-red-50 border-red-200">
-                <Package size={17} className="mt-0.5 shrink-0 text-red-500" />
-                <div>
-                  <p className="text-sm font-semibold text-red-700">{a.designation}</p>
-                  <p className="text-xs text-stone-500">Rupture de stock</p>
+            {alertesStock.map((alerte) => {
+              const Icone = ICONES_ALERTE[alerte.type_alerte] || AlertTriangle;
+              const style =
+                alerte.niveau === "critique"
+                  ? { bg: "bg-red-50", border: "border-red-200", texte: "text-red-700", icone: "text-red-500" }
+                  : alerte.niveau === "warning"
+                  ? { bg: "bg-amber-50", border: "border-amber-200", texte: "text-amber-800", icone: "text-amber-500" }
+                  : { bg: "bg-slate-50", border: "border-slate-200", texte: "text-slate-700", icone: "text-slate-400" };
+              return (
+                <div
+                  key={alerte.id}
+                  className={`flex items-start gap-3 p-3 rounded-lg border ${style.bg} ${style.border}`}
+                >
+                  <Icone size={17} className={`mt-0.5 shrink-0 ${style.icone}`} />
+                  <p className={`text-sm font-medium ${style.texte}`}>{alerte.message}</p>
                 </div>
-              </div>
-            ))}
-            {enAlerte.map((a) => (
-              <div key={a.id} className="flex items-start gap-3 p-3 rounded-lg border bg-amber-50 border-amber-200">
-                <Package size={17} className="mt-0.5 shrink-0 text-amber-500" />
-                <div>
-                  <p className="text-sm font-semibold text-amber-800">{a.designation}</p>
-                  <p className="text-xs text-stone-500">
-                    Il reste {a.stock_actuel} {a.unite} — seuil {a.seuil_alerte}
-                  </p>
-                </div>
-              </div>
-            ))}
+              );
+            })}
             {creances.map((c) => (
               <div key={c.id} className="flex items-start gap-3 p-3 rounded-lg border bg-slate-50 border-slate-200">
                 <Users size={17} className="mt-0.5 shrink-0 text-slate-400" />
@@ -254,7 +264,7 @@ export function DashboardPage() {
                 </div>
               </div>
             ))}
-            {enRupture.length === 0 && enAlerte.length === 0 && creances.length === 0 && (
+            {alertesStock.length === 0 && creances.length === 0 && (
               <p className="text-sm text-stone-400">Aucune alerte pour le moment.</p>
             )}
           </div>

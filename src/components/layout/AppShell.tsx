@@ -3,6 +3,7 @@ import {
   LayoutDashboard,
   ShoppingCart,
   Package,
+  ClipboardList,
   Users,
   FileText,
   Wifi,
@@ -16,6 +17,7 @@ const LIENS_NAV = [
   { to: "/", label: "Tableau de bord", icone: LayoutDashboard, fin: true },
   { to: "/vente", label: "Vente", icone: ShoppingCart },
   { to: "/stock", label: "Stock", icone: Package },
+  { to: "/inventaire", label: "Inventaire", icone: ClipboardList },
   { to: "/clients", label: "Clients", icone: Users },
   { to: "/factures", label: "Factures", icone: FileText },
 ];
