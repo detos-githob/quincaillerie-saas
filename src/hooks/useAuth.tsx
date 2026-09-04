@@ -13,6 +13,7 @@ interface ContexteAuth {
   session: Session | null;
   utilisateur: Utilisateur | null;
   entreprise: Entreprise | null;
+  estSuperAdmin: boolean;
   chargement: boolean;
   connexion: (email: string, motDePasse: string) => Promise<{ erreur: string | null }>;
   inscription: (
@@ -29,8 +30,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [utilisateur, setUtilisateur] = useState<Utilisateur | null>(null);
   const [entreprise, setEntreprise] = useState<Entreprise | null>(null);
+  const [estSuperAdmin, setEstSuperAdmin] = useState(false);
   const [chargement, setChargement] = useState(true);
   const [chargementProfil, setChargementProfil] = useState(false);
+
+  async function verifierSuperAdmin() {
+    const { data } = await supabase.rpc("est_super_admin");
+    setEstSuperAdmin(!!data);
+  }
 
   async function chargerProfil(userId: string) {
     setChargementProfil(true);
@@ -63,7 +70,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
-      if (session?.user) await chargerProfil(session.user.id);
+      if (session?.user) {
+        await Promise.all([chargerProfil(session.user.id), verifierSuperAdmin()]);
+      }
       setChargement(false);
     });
 
@@ -71,10 +80,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       async (_event, session) => {
         setSession(session);
         if (session?.user) {
-          await chargerProfil(session.user.id);
+          await Promise.all([chargerProfil(session.user.id), verifierSuperAdmin()]);
         } else {
           setUtilisateur(null);
           setEntreprise(null);
+          setEstSuperAdmin(false);
         }
       }
     );
@@ -118,6 +128,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         session,
         utilisateur,
         entreprise,
+        estSuperAdmin,
         chargement: chargement || chargementProfil,
         connexion,
         inscription,

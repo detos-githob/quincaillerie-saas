@@ -20,6 +20,11 @@ export interface Entreprise {
   telephone: string | null;
   email: string | null;
   logo_url: string | null;
+  plan_abonnement: string;
+  periodicite_abonnement: "mensuel" | "annuel" | null;
+  date_expiration_abonnement: string | null;
+  actif: boolean;
+  created_at?: string;
 }
 
 export interface Utilisateur {

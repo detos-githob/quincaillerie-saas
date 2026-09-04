@@ -6,6 +6,8 @@ import {
   ClipboardList,
   Users,
   FileText,
+  UserCog,
+  ShieldCheck,
   Wifi,
   WifiOff,
   LogOut,
@@ -13,18 +15,22 @@ import {
 import { useAuth } from "../../hooks/useAuth";
 import { useSyncHorsLigne } from "../../hooks/useSyncHorsLigne";
 
-const LIENS_NAV = [
-  { to: "/", label: "Tableau de bord", icone: LayoutDashboard, fin: true },
-  { to: "/vente", label: "Vente", icone: ShoppingCart },
-  { to: "/stock", label: "Stock", icone: Package },
-  { to: "/inventaire", label: "Inventaire", icone: ClipboardList },
-  { to: "/clients", label: "Clients", icone: Users },
-  { to: "/factures", label: "Factures", icone: FileText },
-];
-
 export function AppShell() {
-  const { entreprise, utilisateur, deconnexion } = useAuth();
+  const { entreprise, utilisateur, estSuperAdmin, deconnexion } = useAuth();
   const { enLigne, nombreEnAttente } = useSyncHorsLigne();
+
+  const role = utilisateur?.role;
+  const estGerantOuComptable = role === "gerant" || role === "comptable";
+
+  const liensNav = [
+    { to: "/", label: "Tableau de bord", icone: LayoutDashboard, fin: true, visible: estGerantOuComptable },
+    { to: "/vente", label: "Vente", icone: ShoppingCart, visible: true },
+    { to: "/stock", label: "Stock", icone: Package, visible: estGerantOuComptable },
+    { to: "/inventaire", label: "Inventaire", icone: ClipboardList, visible: estGerantOuComptable },
+    { to: "/clients", label: "Clients", icone: Users, visible: true },
+    { to: "/factures", label: "Factures", icone: FileText, visible: true },
+    { to: "/equipe", label: "Équipe", icone: UserCog, visible: role === "gerant" },
+  ].filter((l) => l.visible);
 
   return (
     <div className="min-h-screen bg-stone-50 font-body flex flex-col">
@@ -45,6 +51,15 @@ export function AppShell() {
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          {estSuperAdmin && (
+            <NavLink
+              to="/admin"
+              className="p-1.5 rounded text-stone-400 hover:text-stone-100 hover:bg-stone-800"
+              title="Espace administrateur"
+            >
+              <ShieldCheck size={16} />
+            </NavLink>
+          )}
           <div className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded bg-stone-800">
             {enLigne ? (
               <>
@@ -74,7 +89,7 @@ export function AppShell() {
       <div className="flex-1 pb-16 sm:pb-0 sm:flex">
         {/* Navigation latérale (desktop) */}
         <nav className="hidden sm:flex sm:flex-col sm:w-56 sm:border-r sm:border-stone-200 sm:py-4 sm:px-2 sm:gap-1 shrink-0">
-          {LIENS_NAV.map((lien) => (
+          {liensNav.map((lien) => (
             <NavLink
               key={lien.to}
               to={lien.to}
@@ -100,7 +115,7 @@ export function AppShell() {
 
       {/* Navigation basse (mobile) */}
       <nav className="sm:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-stone-200 flex justify-around py-1.5 z-30">
-        {LIENS_NAV.map((lien) => (
+        {liensNav.map((lien) => (
           <NavLink
             key={lien.to}
             to={lien.to}
