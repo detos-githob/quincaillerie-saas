@@ -1,8 +1,10 @@
 import { AlertTriangle } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 
 export function AbonnementExpirePage() {
-  const { entreprise, deconnexion } = useAuth();
+  const { entreprise, utilisateur, deconnexion } = useAuth();
+  const navigate = useNavigate();
 
   return (
     <div className="min-h-screen bg-stone-50 flex items-center justify-center px-4 font-body">
@@ -22,6 +24,14 @@ export function AbonnementExpirePage() {
           L'abonnement de <strong>{entreprise?.nom}</strong> est arrivé à expiration. Contacte
           l'éditeur du logiciel pour le renouveler et retrouver l'accès à ton espace.
         </p>
+        {utilisateur?.role === "gerant" && (
+          <button
+            onClick={() => navigate("/offres")}
+            className="w-full bg-amber-500 hover:bg-amber-600 text-stone-900 font-semibold py-3 rounded-xl transition-colors"
+          >
+            Renouveler maintenant
+          </button>
+        )}
         <button
           onClick={deconnexion}
           className="text-sm font-medium text-amber-600 mt-2"

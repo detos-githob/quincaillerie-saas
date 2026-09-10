@@ -8,6 +8,7 @@ import {
   FileText,
   UserCog,
   ShieldCheck,
+  CreditCard,
   Wifi,
   WifiOff,
   LogOut,
@@ -30,6 +31,7 @@ export function AppShell() {
     { to: "/clients", label: "Clients", icone: Users, visible: true },
     { to: "/factures", label: "Factures", icone: FileText, visible: true },
     { to: "/equipe", label: "Équipe", icone: UserCog, visible: role === "gerant" },
+    { to: "/mon-abonnement", label: "Abonnement", icone: CreditCard, visible: role === "gerant" },
   ].filter((l) => l.visible);
 
   return (

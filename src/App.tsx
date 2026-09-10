@@ -15,6 +15,9 @@ import { InventairePage } from "./features/inventaire/InventairePage";
 import { InventaireDetailPage } from "./features/inventaire/InventaireDetailPage";
 import { EquipePage } from "./features/equipe/EquipePage";
 import { AdminPage } from "./features/admin/AdminPage";
+import { MonAbonnementPage } from "./features/abonnement/MonAbonnementPage";
+import { OffresPage } from "./features/abonnement/OffresPage";
+import { PaiementPage } from "./features/abonnement/PaiementPage";
 
 export default function App() {
   return (
@@ -41,6 +44,9 @@ export default function App() {
             <Route path="/factures" element={<FacturesPage />} />
             <Route path="/equipe" element={<EquipePage />} />
             <Route path="/admin" element={<AdminPage />} />
+            <Route path="/mon-abonnement" element={<MonAbonnementPage />} />
+            <Route path="/offres" element={<OffresPage />} />
+            <Route path="/paiement" element={<PaiementPage />} />
           </Route>
         </Routes>
       </BrowserRouter>
