@@ -4,6 +4,19 @@ import type { FactureAvecDetails } from "../../services/facturesService";
 import type { Entreprise } from "../../types";
 
 /**
+ * Formate un montant avec des points comme séparateurs de milliers.
+ *
+ * On n'utilise PAS toLocaleString("fr-FR") : ce format insère un espace
+ * insécable étroit (U+202F) que la police par défaut de jsPDF ne sait
+ * pas afficher, ce qui produit un caractère "/" à la place dans le PDF.
+ */
+function formatMontantPDF(montant: number): string {
+  return Math.round(montant)
+    .toString()
+    .replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+}
+
+/**
  * Génère un PDF de facture simple et déclenche son téléchargement.
  *
  * La facture "normalisée" (Phase 3) réutilisera cette même mise en page
@@ -69,14 +82,15 @@ export function genererFacturePDF(facture: FactureAvecDetails, entreprise: Entre
   y += 8;
   autoTable(doc, {
     startY: y,
+    margin: { left: marge, right: marge },
     head: [["Désignation", "Qté", "Unité", "Prix unitaire", "Remise", "Montant"]],
     body: facture.vente.lignes_vente.map((l) => [
       l.article.designation,
       String(l.quantite),
       l.article.unite,
-      `${l.prix_unitaire.toLocaleString("fr-FR")} F`,
-      `${l.remise.toLocaleString("fr-FR")} F`,
-      `${l.montant_ligne.toLocaleString("fr-FR")} F`,
+      `${formatMontantPDF(l.prix_unitaire)} F`,
+      `${formatMontantPDF(l.remise)} F`,
+      `${formatMontantPDF(l.montant_ligne)} F`,
     ]),
     headStyles: { fillColor: [28, 25, 23] },
     styles: { fontSize: 9 },
@@ -88,7 +102,7 @@ export function genererFacturePDF(facture: FactureAvecDetails, entreprise: Entre
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
   doc.text(
-    `Total : ${facture.vente.montant_total.toLocaleString("fr-FR")} F`,
+    `Total : ${formatMontantPDF(facture.vente.montant_total)} F`,
     196,
     finTableau + 10,
     { align: "right" }
