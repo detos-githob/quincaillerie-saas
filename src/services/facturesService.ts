@@ -4,6 +4,8 @@ export interface FactureAvecDetails {
   id: string;
   numero_facture: string;
   type_facture: string;
+  statut_emecef: string;
+  nim: string | null;
   date_emission: string;
   vente: {
     id: string;
@@ -26,7 +28,7 @@ export async function listerFacturesRecentes(limite = 50): Promise<FactureAvecDe
     .from("factures")
     .select(
       `
-      id, numero_facture, type_facture, date_emission,
+      id, numero_facture, type_facture, statut_emecef, nim, date_emission,
       vente:ventes (
         id, numero_vente, montant_total, mode_paiement,
         client:clients ( nom, ifu, adresse ),

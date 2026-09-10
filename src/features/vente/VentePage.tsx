@@ -4,7 +4,7 @@ import { useAuth } from "../../hooks/useAuth";
 import { listerArticles } from "../../services/articlesService";
 import { listerClients, creerClient } from "../../services/clientsService";
 import { enregistrerVente } from "../../services/ventesService";
-import type { Article, Client, ModePaiement } from "../../types";
+import type { Article, Client, ModePaiement, TypeFacture } from "../../types";
 
 function formatFCFA(montant: number): string {
   return Math.round(montant).toLocaleString("fr-FR") + " F";
@@ -27,6 +27,7 @@ export function VentePage() {
   const [nouveauClientNom, setNouveauClientNom] = useState("");
   const [nouveauClientTelephone, setNouveauClientTelephone] = useState("");
   const [modePaiement, setModePaiement] = useState<ModePaiement>("especes");
+  const [typeFacture, setTypeFacture] = useState<TypeFacture>("simple");
   const [enCours, setEnCours] = useState(false);
   const [messageFinal, setMessageFinal] = useState<string | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -116,6 +117,7 @@ export function VentePage() {
         p_client_id: clientFinal,
         p_utilisateur_id: utilisateur?.id || null,
         p_mode_paiement: modePaiement,
+        p_type_facture: typeFacture,
         p_lignes: panier.map((l) => ({
           article_id: l.article.id,
           designation: l.article.designation,
@@ -148,6 +150,7 @@ export function VentePage() {
         setNouveauClientNom("");
         setNouveauClientTelephone("");
         setModePaiement("especes");
+        setTypeFacture("simple");
       }, 1800);
     } catch (e: any) {
       setErreur(e.message || "Erreur lors de l'enregistrement de la vente.");
@@ -364,6 +367,33 @@ export function VentePage() {
                     </button>
                   ))}
                 </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-medium text-stone-500">Type de facture</label>
+                <div className="grid grid-cols-2 gap-2 mt-1">
+                  {(
+                    [
+                      { id: "simple", label: "Simple" },
+                      { id: "normalisee", label: "Normalisée" },
+                    ] as { id: TypeFacture; label: string }[]
+                  ).map((t) => (
+                    <button
+                      key={t.id}
+                      onClick={() => setTypeFacture(t.id)}
+                      className={`py-2 rounded-lg text-sm font-medium border ${
+                        typeFacture === t.id ? "bg-slate-700 text-white border-slate-700" : "bg-white text-stone-600 border-stone-300"
+                      }`}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+                {typeFacture === "normalisee" && (
+                  <p className="text-[11px] text-amber-600 mt-1">
+                    Sera marquée "en attente" jusqu'à transmission à la DGI (e-MECeF).
+                  </p>
+                )}
               </div>
 
               <div className="flex items-center justify-between pt-1">

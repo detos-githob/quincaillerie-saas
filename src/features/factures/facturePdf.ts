@@ -101,14 +101,23 @@ export function genererFacturePDF(facture: FactureAvecDetails, entreprise: Entre
     finTableau + 10
   );
 
-  // Mention obligation e-MECeF si facture normalisée (placeholder Phase 3)
+  // Mention honnête de l'état de validation DGI pour une facture
+  // normalisée — on n'invente JAMAIS de QR code ni de NIM tant que la
+  // validation e-MECeF réelle n'a pas eu lieu, ce serait un faux
+  // document fiscal.
   if (facture.type_facture === "normalisee") {
     doc.setFontSize(8);
-    doc.text(
-      "NIM et sceau électronique e-MECeF à intégrer (module Phase 3).",
-      marge,
-      finTableau + 20
-    );
+    if (facture.statut_emecef === "validee" && facture.nim) {
+      doc.text(`NIM : ${facture.nim}`, marge, finTableau + 20);
+    } else {
+      doc.setTextColor(180, 120, 0);
+      doc.text(
+        "Facture normalisée en attente de validation e-MECeF (DGI) — NIM non encore attribué.",
+        marge,
+        finTableau + 20
+      );
+      doc.setTextColor(0, 0, 0);
+    }
   }
 
   doc.save(`${facture.numero_facture}.pdf`);
