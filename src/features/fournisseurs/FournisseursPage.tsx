@@ -1,19 +1,24 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { Plus, Truck, X, PackagePlus } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Plus, X, Truck } from "lucide-react";
 import {
   listerFournisseurs,
   creerFournisseur,
-  receptionnerLivraisonFournisseur,
+  enregistrerReglementFournisseur,
 } from "../../services/fournisseursService";
-import { listerArticles } from "../../services/articlesService";
 import { useAuth } from "../../hooks/useAuth";
-import type { Article, Fournisseur } from "../../types";
+import type { Fournisseur } from "../../types";
+
+function formatFCFA(montant: number): string {
+  return Math.round(montant).toLocaleString("fr-FR") + " F";
+}
 
 export function FournisseursPage() {
+  const navigate = useNavigate();
   const [fournisseurs, setFournisseurs] = useState<Fournisseur[]>([]);
   const [chargement, setChargement] = useState(true);
-  const [modaleNouveau, setModaleNouveau] = useState(false);
-  const [fournisseurReception, setFournisseurReception] = useState<Fournisseur | null>(null);
+  const [modaleOuverte, setModaleOuverte] = useState(false);
+  const [fournisseurReglement, setFournisseurReglement] = useState<Fournisseur | null>(null);
 
   useEffect(() => {
     listerFournisseurs()
@@ -30,7 +35,7 @@ export function FournisseursPage() {
       <div className="flex items-center justify-between mb-4">
         <h1 className="font-display text-2xl font-bold text-stone-900">Fournisseurs</h1>
         <button
-          onClick={() => setModaleNouveau(true)}
+          onClick={() => setModaleOuverte(true)}
           className="flex items-center gap-1.5 bg-stone-900 text-white text-sm font-medium px-3.5 py-2 rounded-lg"
         >
           <Plus size={16} /> Nouveau fournisseur
@@ -40,21 +45,29 @@ export function FournisseursPage() {
       <div className="bg-white border border-stone-200 rounded-xl divide-y divide-stone-100">
         {fournisseurs.map((f) => (
           <div key={f.id} className="flex items-center justify-between p-4">
-            <div className="flex items-center gap-3 min-w-0">
+            <button
+              onClick={() => navigate(`/fournisseurs/${f.id}`)}
+              className="flex items-center gap-3 min-w-0 text-left flex-1"
+            >
               <span className="flex items-center justify-center w-9 h-9 rounded-full bg-stone-100 shrink-0">
                 <Truck size={16} className="text-stone-400" />
               </span>
               <div className="min-w-0">
                 <p className="text-sm font-medium text-stone-900 truncate">{f.nom}</p>
-                <p className="text-xs text-stone-400">{f.telephone || "Pas de téléphone"}</p>
+                <p className="text-xs text-stone-400">
+                  {f.telephone || "Pas de téléphone"}
+                  {f.delai_livraison_jours ? ` · ${f.delai_livraison_jours}j de délai` : ""}
+                </p>
               </div>
-            </div>
-            <button
-              onClick={() => setFournisseurReception(f)}
-              className="flex items-center gap-1.5 text-xs font-medium text-amber-600 border border-amber-200 bg-amber-50 px-2.5 py-1.5 rounded-lg shrink-0"
-            >
-              <PackagePlus size={14} /> Réceptionner
             </button>
+            {f.solde_du > 0 ? (
+              <button onClick={() => setFournisseurReglement(f)} className="text-right shrink-0 ml-2">
+                <p className="text-sm font-semibold text-red-600">{formatFCFA(f.solde_du)}</p>
+                <p className="text-[11px] text-stone-400">Régler →</p>
+              </button>
+            ) : (
+              <span className="text-xs text-stone-300 shrink-0 ml-2">Aucune dette</span>
+            )}
           </div>
         ))}
         {fournisseurs.length === 0 && (
@@ -62,17 +75,26 @@ export function FournisseursPage() {
         )}
       </div>
 
-      {modaleNouveau && (
+      {modaleOuverte && (
         <ModaleNouveauFournisseur
-          onFerme={() => setModaleNouveau(false)}
-          onCree={(f) => setFournisseurs((prev) => [...prev, f])}
+          onFerme={() => setModaleOuverte(false)}
+          onCree={(f) => setFournisseurs((prev) => [...prev, f].sort((a, b) => a.nom.localeCompare(b.nom)))}
         />
       )}
 
-      {fournisseurReception && (
-        <ModaleReception
-          fournisseur={fournisseurReception}
-          onFerme={() => setFournisseurReception(null)}
+      {fournisseurReglement && (
+        <ModaleReglement
+          fournisseur={fournisseurReglement}
+          onFerme={() => setFournisseurReglement(null)}
+          onRegle={(montant) =>
+            setFournisseurs((prev) =>
+              prev.map((f) =>
+                f.id === fournisseurReglement.id
+                  ? { ...f, solde_du: Math.max(0, f.solde_du - montant) }
+                  : f
+              )
+            )
+          }
         />
       )}
     </div>
@@ -88,28 +110,28 @@ function ModaleNouveauFournisseur({
 }) {
   const { entreprise } = useAuth();
   const [nom, setNom] = useState("");
+  const [contactNom, setContactNom] = useState("");
   const [telephone, setTelephone] = useState("");
-  const [adresse, setAdresse] = useState("");
+  const [delaiLivraison, setDelaiLivraison] = useState("");
   const [enCours, setEnCours] = useState(false);
-  const [erreur, setErreur] = useState<string | null>(null);
 
   async function gererSoumission(e: FormEvent) {
     e.preventDefault();
     if (!entreprise) return;
     setEnCours(true);
-    setErreur(null);
-    try {
-      const fournisseur = await creerFournisseur(
-        { nom, telephone: telephone || null, adresse: adresse || null, ifu: null },
-        entreprise.id
-      );
-      onCree(fournisseur);
-      onFerme();
-    } catch (e: any) {
-      setErreur(e.message || "Erreur lors de la création du fournisseur.");
-    } finally {
-      setEnCours(false);
-    }
+    const fournisseur = await creerFournisseur(
+      {
+        nom,
+        contact_nom: contactNom || null,
+        telephone: telephone || null,
+        adresse: null,
+        ifu: null,
+        delai_livraison_jours: delaiLivraison ? Number(delaiLivraison) : null,
+      },
+      entreprise.id
+    );
+    onCree(fournisseur);
+    onFerme();
   }
 
   return (
@@ -129,25 +151,36 @@ function ModaleNouveauFournisseur({
             value={nom}
             onChange={(e) => setNom(e.target.value)}
             className="w-full mt-1 border border-stone-300 rounded-lg py-2 px-3 text-sm"
+            placeholder="Ex : Brasserie du Bénin, Grossiste FADOUL..."
           />
         </div>
         <div>
-          <label className="text-xs font-medium text-stone-500">Téléphone</label>
+          <label className="text-xs font-medium text-stone-500">Contact (nom)</label>
           <input
-            value={telephone}
-            onChange={(e) => setTelephone(e.target.value)}
+            value={contactNom}
+            onChange={(e) => setContactNom(e.target.value)}
             className="w-full mt-1 border border-stone-300 rounded-lg py-2 px-3 text-sm"
           />
         </div>
-        <div>
-          <label className="text-xs font-medium text-stone-500">Adresse</label>
-          <input
-            value={adresse}
-            onChange={(e) => setAdresse(e.target.value)}
-            className="w-full mt-1 border border-stone-300 rounded-lg py-2 px-3 text-sm"
-          />
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="text-xs font-medium text-stone-500">Téléphone</label>
+            <input
+              value={telephone}
+              onChange={(e) => setTelephone(e.target.value)}
+              className="w-full mt-1 border border-stone-300 rounded-lg py-2 px-3 text-sm"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-stone-500">Délai livraison (j)</label>
+            <input
+              type="number"
+              value={delaiLivraison}
+              onChange={(e) => setDelaiLivraison(e.target.value)}
+              className="w-full mt-1 border border-stone-300 rounded-lg py-2 px-3 text-sm"
+            />
+          </div>
         </div>
-        {erreur && <p className="text-sm text-red-600">{erreur}</p>}
         <button
           type="submit"
           disabled={enCours}
@@ -160,81 +193,57 @@ function ModaleNouveauFournisseur({
   );
 }
 
-function ModaleReception({ fournisseur, onFerme }: { fournisseur: Fournisseur; onFerme: () => void }) {
-  const { entreprise, utilisateur } = useAuth();
-  const [articles, setArticles] = useState<Article[]>([]);
-  const [quantites, setQuantites] = useState<Record<string, string>>({});
+function ModaleReglement({
+  fournisseur,
+  onFerme,
+  onRegle,
+}: {
+  fournisseur: Fournisseur;
+  onFerme: () => void;
+  onRegle: (montant: number) => void;
+}) {
+  const [montant, setMontant] = useState(String(fournisseur.solde_du));
   const [enCours, setEnCours] = useState(false);
-  const [erreur, setErreur] = useState<string | null>(null);
-  const [succes, setSucces] = useState(false);
 
-  useEffect(() => {
-    listerArticles().then(setArticles);
-  }, []);
-
-  async function gererValidation() {
-    if (!entreprise) return;
-    const lignes = Object.entries(quantites)
-      .map(([articleId, q]) => ({ article_id: articleId, quantite: Number(q) }))
-      .filter((l) => l.quantite > 0);
-
-    if (lignes.length === 0) {
-      setErreur("Renseigne au moins une quantité reçue.");
-      return;
-    }
-
+  async function gererSoumission(e: FormEvent) {
+    e.preventDefault();
     setEnCours(true);
-    setErreur(null);
-    try {
-      await receptionnerLivraisonFournisseur(entreprise.id, fournisseur.id, utilisateur?.id || null, lignes);
-      setSucces(true);
-      setTimeout(onFerme, 1500);
-    } catch (e: any) {
-      setErreur(e.message || "Erreur lors de la réception.");
-    } finally {
-      setEnCours(false);
-    }
+    await enregistrerReglementFournisseur(fournisseur.id, Number(montant), fournisseur.solde_du);
+    onRegle(Number(montant));
+    onFerme();
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center px-4 py-8">
+    <div className="fixed inset-0 z-40 flex items-center justify-center px-4">
       <div className="absolute inset-0 bg-stone-900/40" onClick={onFerme} />
-      <div className="relative bg-white rounded-2xl w-full max-w-md p-5 max-h-full overflow-y-auto">
-        <div className="flex items-center justify-between mb-1">
-          <h2 className="font-display text-xl font-bold text-stone-900">Réception</h2>
-          <button onClick={onFerme} className="text-stone-400">
+      <form onSubmit={gererSoumission} className="relative bg-white rounded-2xl w-full max-w-sm p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="font-display text-xl font-bold text-stone-900">Régler {fournisseur.nom}</h2>
+          <button type="button" onClick={onFerme} className="text-stone-400">
             <X size={20} />
           </button>
         </div>
-        <p className="text-sm text-stone-500 mb-4">Livraison de {fournisseur.nom}</p>
-
-        <div className="space-y-2 max-h-80 overflow-y-auto">
-          {articles.map((a) => (
-            <div key={a.id} className="flex items-center justify-between gap-3">
-              <p className="text-sm text-stone-700 truncate flex-1">{a.designation}</p>
-              <input
-                type="number"
-                min={0}
-                placeholder="0"
-                value={quantites[a.id] || ""}
-                onChange={(e) => setQuantites((prev) => ({ ...prev, [a.id]: e.target.value }))}
-                className="w-20 text-center text-sm border border-stone-300 rounded-lg py-1.5"
-              />
-            </div>
-          ))}
+        <p className="text-sm text-stone-500">
+          Dette actuelle : <strong>{formatFCFA(fournisseur.solde_du)}</strong>
+        </p>
+        <div>
+          <label className="text-xs font-medium text-stone-500">Montant payé (F)</label>
+          <input
+            type="number"
+            required
+            value={montant}
+            onChange={(e) => setMontant(e.target.value)}
+            className="w-full mt-1 border border-stone-300 rounded-lg py-2 px-3 text-sm"
+          />
         </div>
-
-        {erreur && <p className="text-sm text-red-600 mt-3">{erreur}</p>}
-        {succes && <p className="text-sm text-emerald-600 mt-3">Stock mis à jour avec succès !</p>}
-
         <button
-          onClick={gererValidation}
-          disabled={enCours || succes}
-          className="w-full mt-4 bg-amber-500 hover:bg-amber-600 text-stone-900 font-semibold py-2.5 rounded-xl disabled:opacity-60"
+          type="submit"
+          disabled={enCours}
+          className="w-full bg-amber-500 hover:bg-amber-600 text-stone-900 font-semibold py-2.5 rounded-xl disabled:opacity-60"
         >
-          {enCours ? "Enregistrement..." : "Valider la réception"}
+          {enCours ? "Enregistrement..." : "Enregistrer le règlement"}
         </button>
-      </div>
+      </form>
     </div>
   );
 }

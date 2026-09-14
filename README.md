@@ -43,6 +43,8 @@ suite.
      demi-gros, commandes fournisseur, livraisons
    - `migration_depot_boissons.sql` — casiers, consignes, retours, casses
      (dépôt de boissons)
+   - `migration_secteur_activite.sql` — secteur d'activité de l'entreprise
+     (adapte la navigation à l'inscription)
 
 ## 2. Configurer le projet local
 
@@ -156,6 +158,23 @@ Puis, comme pour ton portfolio :
 - Déclaration des casses (bouteilles/casiers cassés) : sort la quantité
   du stock et journalise la perte financière (fonction atomique
   `enregistrer_casse`)
+
+### Secteur d'activité & navigation adaptative
+
+- Choix du secteur d'activité à l'inscription (quincaillerie, dépôt de
+  boissons, alimentation générale, vente de pièces détachées, ou "autre"
+  avec un libellé libre) — champ `secteur_activite` sur l'entreprise
+- Les modules de base (Vente, Stock, Inventaire, Clients, Factures,
+  Équipe, Abonnement) restent disponibles pour tous les secteurs
+- Les modules spécifiques ne s'affichent que pour le secteur concerné :
+  Fournisseurs pour la quincaillerie, Dépôt de boissons pour ce secteur,
+  Livraisons pour les deux. Alimentation générale, pièces détachées et
+  "autre" n'ont pas encore de modules dédiés — à venir
+- Le tableau de bord affiche un encart propre au secteur (dette
+  fournisseurs pour la quincaillerie, casiers consignés en cours pour
+  le dépôt de boissons)
+- Sur mobile, au-delà de 4 onglets la barre basse affiche un bouton
+  **Plus** qui ouvre la liste complète des modules disponibles
 
 ## Roadmap (prochaines phases)
 

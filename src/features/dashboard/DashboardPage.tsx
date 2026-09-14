@@ -6,6 +6,8 @@ import {
   TrendingUp,
   Users,
   CircleCheck,
+  Handshake,
+  Beer,
 } from "lucide-react";
 import { BarChart, Bar, XAxis, ResponsiveContainer, Tooltip, Cell } from "recharts";
 import { supabase } from "../../lib/supabaseClient";
@@ -36,6 +38,8 @@ export function DashboardPage() {
   const [alertesStock, setAlertesStock] = useState<Alerte[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [topArticles, setTopArticles] = useState<{ nom: string; quantite: number; montant: number }[]>([]);
+  const [detteFournisseurs, setDetteFournisseurs] = useState(0);
+  const [commandesFournisseurEnAttente, setCommandesFournisseurEnAttente] = useState(0);
 
   useEffect(() => {
     if (!entreprise) return;
@@ -134,6 +138,22 @@ export function DashboardPage() {
       setAlertesStock((alertesData || []) as Alerte[]);
       setClients(clientsData);
       setTopArticles(top);
+
+      // Widget sectoriel : dette fournisseurs, uniquement pour les
+      // entreprises du secteur quincaillerie.
+      if (entreprise!.secteur_activite === "quincaillerie") {
+        const [{ data: fournisseurs }, { count: commandesEnAttente }] = await Promise.all([
+          supabase.from("fournisseurs").select("solde_du").eq("entreprise_id", entreprise!.id),
+          supabase
+            .from("commandes_fournisseur")
+            .select("id", { count: "exact", head: true })
+            .eq("entreprise_id", entreprise!.id)
+            .in("statut", ["envoyee", "receptionnee_partielle"]),
+        ]);
+        setDetteFournisseurs((fournisseurs || []).reduce((s, f: any) => s + Number(f.solde_du), 0));
+        setCommandesFournisseurEnAttente(commandesEnAttente || 0);
+      }
+
       setChargement(false);
     }
 
@@ -142,6 +162,12 @@ export function DashboardPage() {
 
   const creances = useMemo(() => clientsAvecCreanceEnRetard(clients), [clients]);
   const totalCreances = creances.reduce((s, c) => s + c.solde_credit, 0);
+
+  const clientsAvecConsigne = useMemo(
+    () => clients.filter((c) => c.solde_consigne_casiers > 0 || c.solde_consigne_bouteilles > 0),
+    [clients]
+  );
+  const totalCasiersConsignes = clientsAvecConsigne.reduce((s, c) => s + c.solde_consigne_casiers, 0);
 
   const nombreCritiques = alertesStock.filter((a) => a.niveau === "critique").length;
   const statutSante = nombreCritiques > 0 ? "attention" : "bon";
@@ -206,6 +232,53 @@ export function DashboardPage() {
           <p className="font-display text-2xl font-bold text-stone-900 mt-1">{formatFCFA(totalCreances)}</p>
         </div>
       </div>
+
+      {/* Widget spécifique au secteur d'activité */}
+      {entreprise?.secteur_activite === "quincaillerie" && (
+        <div className="bg-white border border-stone-200 rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Handshake size={16} className="text-slate-500" />
+            <p className="font-display text-lg font-bold text-stone-900">Fournisseurs</p>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <p className="text-xs text-stone-500">Dette totale envers tes fournisseurs</p>
+              <p className="font-display text-xl font-bold text-stone-900 mt-0.5">
+                {formatFCFA(detteFournisseurs)}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-stone-500">Commandes en attente / partielles</p>
+              <p className="font-display text-xl font-bold text-stone-900 mt-0.5">
+                {commandesFournisseurEnAttente}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {entreprise?.secteur_activite === "depot_boissons" && (
+        <div className="bg-white border border-stone-200 rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Beer size={16} className="text-slate-500" />
+            <p className="font-display text-lg font-bold text-stone-900">Consignes en cours</p>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <p className="text-xs text-stone-500">Clients avec des casiers à rendre</p>
+              <p className="font-display text-xl font-bold text-stone-900 mt-0.5">
+                {clientsAvecConsigne.length}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-stone-500">Total casiers consignés</p>
+              <p className="font-display text-xl font-bold text-stone-900 mt-0.5">
+                {totalCasiersConsignes}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Graphique */}
       <div className="bg-white border border-stone-200 rounded-xl p-4">

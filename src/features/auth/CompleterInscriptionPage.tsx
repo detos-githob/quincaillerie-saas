@@ -2,15 +2,18 @@ import { useState, type FormEvent } from "react";
 import { useNavigate, Navigate } from "react-router-dom";
 import { supabase } from "../../lib/supabaseClient";
 import { useAuth } from "../../hooks/useAuth";
+import { SelecteurSecteurActivite } from "./SelecteurSecteurActivite";
+import type { SecteurActivite } from "../../types";
 
 export function CompleterInscriptionPage() {
   const { session, rafraichirProfil, deconnexion } = useAuth();
   const navigate = useNavigate();
 
   const [nomEntreprise, setNomEntreprise] = useState("");
-  const [secteurActivite, setSecteurActivite] = useState<"quincaillerie" | "depot_boissons">("quincaillerie");
   const [regimeFiscal, setRegimeFiscal] = useState<"forfait" | "reel">("forfait");
   const [telephoneEntreprise, setTelephoneEntreprise] = useState("");
+  const [secteurActivite, setSecteurActivite] = useState<SecteurActivite>("quincaillerie");
+  const [secteurActiviteAutre, setSecteurActiviteAutre] = useState("");
   const [nomGerant, setNomGerant] = useState("");
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -30,6 +33,7 @@ export function CompleterInscriptionPage() {
         p_telephone: telephoneEntreprise || null,
         p_nom_gerant: nomGerant,
         p_secteur_activite: secteurActivite,
+        p_secteur_activite_autre: secteurActivite === "autre" ? secteurActiviteAutre : null,
       });
       if (error) throw error;
 
@@ -68,31 +72,6 @@ export function CompleterInscriptionPage() {
             />
           </div>
 
-          <div>
-            <label className="text-xs font-medium text-stone-500">Secteur d'activité</label>
-            <div className="grid grid-cols-2 gap-2 mt-1">
-              {(
-                [
-                  { id: "quincaillerie", label: "Quincaillerie" },
-                  { id: "depot_boissons", label: "Dépôt de boissons" },
-                ] as const
-              ).map((s) => (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => setSecteurActivite(s.id)}
-                  className={`py-2.5 rounded-lg text-sm font-medium border ${
-                    secteurActivite === s.id
-                      ? "bg-stone-900 text-white border-stone-900"
-                      : "bg-white text-stone-600 border-stone-300"
-                  }`}
-                >
-                  {s.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-medium text-stone-500">Régime fiscal</label>
@@ -114,6 +93,13 @@ export function CompleterInscriptionPage() {
               />
             </div>
           </div>
+
+          <SelecteurSecteurActivite
+            valeur={secteurActivite}
+            onChange={setSecteurActivite}
+            valeurAutre={secteurActiviteAutre}
+            onChangeAutre={setSecteurActiviteAutre}
+          />
 
           <div>
             <label className="text-xs font-medium text-stone-500">Ton nom (gérant)</label>

@@ -13,12 +13,52 @@ export async function listerArticles(): Promise<Article[]> {
 }
 
 export async function creerArticle(
-  article: Omit<Article, "id" | "entreprise_id" | "stock_actuel" | "stock_vides" | "actif">,
+  article: Omit<
+    Article,
+    | "id"
+    | "entreprise_id"
+    | "stock_actuel"
+    | "actif"
+    | "prix_demi_gros"
+    | "prix_gros"
+    | "seuil_demi_gros"
+    | "seuil_gros"
+    | "gestion_consigne"
+    | "prix_consigne_casier"
+    | "prix_consigne_bouteille"
+    | "capacite_casier"
+  > &
+    Partial<
+      Pick<
+        Article,
+        | "prix_demi_gros"
+        | "prix_gros"
+        | "seuil_demi_gros"
+        | "seuil_gros"
+        | "gestion_consigne"
+        | "prix_consigne_casier"
+        | "prix_consigne_bouteille"
+        | "capacite_casier"
+      >
+    >,
   entrepriseId: string
 ): Promise<Article> {
   const { data, error } = await supabase
     .from("articles")
-    .insert({ ...article, entreprise_id: entrepriseId, stock_actuel: 0, stock_vides: 0, actif: true })
+    .insert({
+      ...article,
+      entreprise_id: entrepriseId,
+      stock_actuel: 0,
+      actif: true,
+      prix_demi_gros: article.prix_demi_gros ?? null,
+      prix_gros: article.prix_gros ?? null,
+      seuil_demi_gros: article.seuil_demi_gros ?? null,
+      seuil_gros: article.seuil_gros ?? null,
+      gestion_consigne: article.gestion_consigne ?? false,
+      prix_consigne_casier: article.prix_consigne_casier ?? null,
+      prix_consigne_bouteille: article.prix_consigne_bouteille ?? null,
+      capacite_casier: article.capacite_casier ?? null,
+    })
     .select()
     .single();
 

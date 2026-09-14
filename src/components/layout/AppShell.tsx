@@ -1,4 +1,5 @@
-import { NavLink, Outlet } from "react-router-dom";
+import { useState } from "react";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
   ShoppingCart,
@@ -9,13 +10,14 @@ import {
   UserCog,
   ShieldCheck,
   CreditCard,
-  Truck,
-  MapPinned,
-  PackageOpen,
-  AlertOctagon,
   Wifi,
   WifiOff,
   LogOut,
+  Handshake,
+  Truck,
+  Beer,
+  MoreHorizontal,
+  X,
 } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
 import { useSyncHorsLigne } from "../../hooks/useSyncHorsLigne";
@@ -23,26 +25,50 @@ import { useSyncHorsLigne } from "../../hooks/useSyncHorsLigne";
 export function AppShell() {
   const { entreprise, utilisateur, estSuperAdmin, deconnexion } = useAuth();
   const { enLigne, nombreEnAttente } = useSyncHorsLigne();
+  const location = useLocation();
+  const [menuPlusOuvert, setMenuPlusOuvert] = useState(false);
 
   const role = utilisateur?.role;
   const estGerantOuComptable = role === "gerant" || role === "comptable";
-  const estQuincaillerie = entreprise?.secteur_activite === "quincaillerie";
-  const estDepotBoissons = entreprise?.secteur_activite === "depot_boissons";
+  const secteur = entreprise?.secteur_activite;
+  // Livraison est utile dès qu'il y a de la marchandise à livrer :
+  // quincaillerie (gros/demi-gros) et dépôt de boissons (casiers).
+  const gereLivraison = secteur === "quincaillerie" || secteur === "depot_boissons";
 
   const liensNav = [
     { to: "/", label: "Tableau de bord", icone: LayoutDashboard, fin: true, visible: estGerantOuComptable },
     { to: "/vente", label: "Vente", icone: ShoppingCart, visible: true },
     { to: "/stock", label: "Stock", icone: Package, visible: estGerantOuComptable },
     { to: "/inventaire", label: "Inventaire", icone: ClipboardList, visible: estGerantOuComptable },
-    { to: "/fournisseurs", label: "Fournisseurs", icone: Truck, visible: estGerantOuComptable && estQuincaillerie },
-    { to: "/livraisons", label: "Livraisons", icone: MapPinned, visible: estQuincaillerie },
-    { to: "/consignes", label: "Consignes", icone: PackageOpen, visible: estDepotBoissons },
-    { to: "/casses", label: "Casses", icone: AlertOctagon, visible: estGerantOuComptable && estDepotBoissons },
+    {
+      to: "/fournisseurs",
+      label: "Fournisseurs",
+      icone: Handshake,
+      visible: estGerantOuComptable && secteur === "quincaillerie",
+    },
+    { to: "/livraisons", label: "Livraisons", icone: Truck, visible: gereLivraison },
+    {
+      to: "/depot-boissons",
+      label: "Dépôt boissons",
+      icone: Beer,
+      visible: estGerantOuComptable && secteur === "depot_boissons",
+    },
     { to: "/clients", label: "Clients", icone: Users, visible: true },
     { to: "/factures", label: "Factures", icone: FileText, visible: true },
     { to: "/equipe", label: "Équipe", icone: UserCog, visible: role === "gerant" },
     { to: "/mon-abonnement", label: "Abonnement", icone: CreditCard, visible: role === "gerant" },
   ].filter((l) => l.visible);
+
+  // Sur mobile, au-delà de 5 onglets la barre basse devient illisible :
+  // on garde les 4 premiers directement visibles et on regroupe le
+  // reste derrière un bouton "Plus" qui ouvre un menu complet.
+  const LIMITE_ONGLETS_MOBILE = 4;
+  const onglétsMobilePrincipaux = liensNav.slice(0, LIMITE_ONGLETS_MOBILE);
+  const onglétsMobileSupplementaires = liensNav.slice(LIMITE_ONGLETS_MOBILE);
+  const aBesoinDuBoutonPlus = onglétsMobileSupplementaires.length > 0;
+  const unOngletSupplementaireEstActif = onglétsMobileSupplementaires.some((l) =>
+    l.fin ? location.pathname === l.to : location.pathname.startsWith(l.to)
+  );
 
   return (
     <div className="min-h-screen bg-stone-50 font-body flex flex-col">
@@ -127,7 +153,7 @@ export function AppShell() {
 
       {/* Navigation basse (mobile) */}
       <nav className="sm:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-stone-200 flex justify-around py-1.5 z-30">
-        {liensNav.map((lien) => (
+        {(aBesoinDuBoutonPlus ? onglétsMobilePrincipaux : liensNav).map((lien) => (
           <NavLink
             key={lien.to}
             to={lien.to}
@@ -142,7 +168,51 @@ export function AppShell() {
             {lien.label}
           </NavLink>
         ))}
+        {aBesoinDuBoutonPlus && (
+          <button
+            onClick={() => setMenuPlusOuvert(true)}
+            className={`flex flex-col items-center gap-0.5 px-2 py-1 rounded-lg text-[11px] font-medium ${
+              unOngletSupplementaireEstActif ? "text-amber-600" : "text-stone-400"
+            }`}
+          >
+            <MoreHorizontal size={20} />
+            Plus
+          </button>
+        )}
       </nav>
+
+      {/* Panneau "Plus" (mobile) : regroupe les onglets qui ne tiennent pas dans la barre basse */}
+      {menuPlusOuvert && (
+        <div className="sm:hidden fixed inset-0 z-40 flex items-end">
+          <div className="absolute inset-0 bg-stone-900/40" onClick={() => setMenuPlusOuvert(false)} />
+          <div className="relative bg-white w-full rounded-t-2xl p-4 pb-6 max-h-[70vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-3">
+              <p className="font-display text-lg font-bold text-stone-900">Tous les onglets</p>
+              <button onClick={() => setMenuPlusOuvert(false)} className="text-stone-400">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="grid grid-cols-4 gap-3">
+              {liensNav.map((lien) => (
+                <NavLink
+                  key={lien.to}
+                  to={lien.to}
+                  end={lien.fin}
+                  onClick={() => setMenuPlusOuvert(false)}
+                  className={({ isActive }) =>
+                    `flex flex-col items-center gap-1.5 py-3 rounded-xl text-[11px] font-medium text-center ${
+                      isActive ? "bg-amber-50 text-amber-700" : "text-stone-600 hover:bg-stone-50"
+                    }`
+                  }
+                >
+                  <lien.icone size={20} />
+                  {lien.label}
+                </NavLink>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

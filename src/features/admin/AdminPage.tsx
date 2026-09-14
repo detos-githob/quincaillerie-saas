@@ -4,6 +4,7 @@ import { Building2, X } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
 import { listerEntreprisesAdmin, modifierAbonnement } from "../../services/adminService";
 import { calculerStatutAbonnement } from "../../lib/abonnement";
+import { libelleSecteurActivite } from "../../lib/secteurActivite";
 import type { Entreprise } from "../../types";
 
 const STYLES_STATUT: Record<string, { bg: string; texte: string; label: string }> = {
@@ -68,6 +69,8 @@ export function AdminPage() {
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-stone-900 truncate">{entreprise.nom}</p>
                     <p className="text-xs text-stone-400">
+                      {libelleSecteurActivite(entreprise.secteur_activite, entreprise.secteur_activite_autre)}
+                      {" · "}
                       {entreprise.plan_abonnement} · {entreprise.periodicite_abonnement || "—"}
                       {joursRestants !== null &&
                         ` · ${joursRestants >= 0 ? `${joursRestants}j restants` : `expiré depuis ${-joursRestants}j`}`}

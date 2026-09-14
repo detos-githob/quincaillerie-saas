@@ -2,15 +2,18 @@ import { useState, type FormEvent } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { supabase } from "../../lib/supabaseClient";
+import { SelecteurSecteurActivite } from "./SelecteurSecteurActivite";
+import type { SecteurActivite } from "../../types";
 
 export function SignupPage() {
   const { inscription } = useAuth();
   const navigate = useNavigate();
 
   const [nomEntreprise, setNomEntreprise] = useState("");
-  const [secteurActivite, setSecteurActivite] = useState<"quincaillerie" | "depot_boissons">("quincaillerie");
   const [regimeFiscal, setRegimeFiscal] = useState<"forfait" | "reel">("forfait");
   const [telephoneEntreprise, setTelephoneEntreprise] = useState("");
+  const [secteurActivite, setSecteurActivite] = useState<SecteurActivite>("quincaillerie");
+  const [secteurActiviteAutre, setSecteurActiviteAutre] = useState("");
   const [nomGerant, setNomGerant] = useState("");
   const [email, setEmail] = useState("");
   const [motDePasse, setMotDePasse] = useState("");
@@ -51,6 +54,7 @@ export function SignupPage() {
         p_telephone: telephoneEntreprise || null,
         p_nom_gerant: nomGerant,
         p_secteur_activite: secteurActivite,
+        p_secteur_activite_autre: secteurActivite === "autre" ? secteurActiviteAutre : null,
       });
       if (error) throw error;
 
@@ -104,38 +108,8 @@ export function SignupPage() {
               value={nomEntreprise}
               onChange={(e) => setNomEntreprise(e.target.value)}
               className="w-full mt-1 border border-stone-300 rounded-lg py-2.5 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
-              placeholder="Quincaillerie ATTIOGBE"
+              placeholder="Quincaillerie ATTIOGBE, Dépôt Boissons ATTIOGBE..."
             />
-          </div>
-
-          <div>
-            <label className="text-xs font-medium text-stone-500">Secteur d'activité</label>
-            <div className="grid grid-cols-2 gap-2 mt-1">
-              {(
-                [
-                  { id: "quincaillerie", label: "Quincaillerie" },
-                  { id: "depot_boissons", label: "Dépôt de boissons" },
-                ] as const
-              ).map((s) => (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => setSecteurActivite(s.id)}
-                  className={`py-2.5 rounded-lg text-sm font-medium border ${
-                    secteurActivite === s.id
-                      ? "bg-stone-900 text-white border-stone-900"
-                      : "bg-white text-stone-600 border-stone-300"
-                  }`}
-                >
-                  {s.label}
-                </button>
-              ))}
-            </div>
-            {secteurActivite === "depot_boissons" && (
-              <p className="text-[11px] text-amber-600 mt-1">
-                Les écrans dédiés (casiers, consignes) arrivent prochainement — tu accèdes déjà aux modules communs (vente, stock, clients).
-              </p>
-            )}
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -160,6 +134,15 @@ export function SignupPage() {
               />
             </div>
           </div>
+
+          <hr className="border-stone-100" />
+
+          <SelecteurSecteurActivite
+            valeur={secteurActivite}
+            onChange={setSecteurActivite}
+            valeurAutre={secteurActiviteAutre}
+            onChangeAutre={setSecteurActiviteAutre}
+          />
 
           <hr className="border-stone-100" />
 

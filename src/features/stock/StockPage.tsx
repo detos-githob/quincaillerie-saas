@@ -11,7 +11,6 @@ function formatFCFA(montant: number): string {
 
 export function StockPage() {
   const { entreprise, utilisateur } = useAuth();
-  const estDepotBoissons = entreprise?.secteur_activite === "depot_boissons";
   const peutGererArticles = utilisateur?.role === "gerant" || utilisateur?.role === "comptable";
   const [articles, setArticles] = useState<Article[]>([]);
   const [recherche, setRecherche] = useState("");
@@ -118,7 +117,6 @@ export function StockPage() {
                   </p>
                   <p className="text-xs text-stone-400">
                     {formatFCFA(article.prix_vente)} · {article.stock_actuel} {article.unite} en stock
-                    {estDepotBoissons && ` · ${article.stock_vides} vide(s)`}
                   </p>
                 </div>
               </button>
