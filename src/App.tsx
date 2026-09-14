@@ -13,6 +13,10 @@ import { ClientsPage } from "./features/clients/ClientsPage";
 import { FacturesPage } from "./features/factures/FacturesPage";
 import { InventairePage } from "./features/inventaire/InventairePage";
 import { InventaireDetailPage } from "./features/inventaire/InventaireDetailPage";
+import { FournisseursPage } from "./features/fournisseurs/FournisseursPage";
+import { FournisseurDetailPage } from "./features/fournisseurs/FournisseurDetailPage";
+import { LivraisonsPage } from "./features/livraisons/LivraisonsPage";
+import { DepotBoissonsPage } from "./features/depot-boissons/DepotBoissonsPage";
 import { EquipePage } from "./features/equipe/EquipePage";
 import { AdminPage } from "./features/admin/AdminPage";
 import { MonAbonnementPage } from "./features/abonnement/MonAbonnementPage";
@@ -40,6 +44,10 @@ export default function App() {
             <Route path="/stock" element={<StockPage />} />
             <Route path="/inventaire" element={<InventairePage />} />
             <Route path="/inventaire/:id" element={<InventaireDetailPage />} />
+            <Route path="/fournisseurs" element={<FournisseursPage />} />
+            <Route path="/fournisseurs/:id" element={<FournisseurDetailPage />} />
+            <Route path="/livraisons" element={<LivraisonsPage />} />
+            <Route path="/depot-boissons" element={<DepotBoissonsPage />} />
             <Route path="/clients" element={<ClientsPage />} />
             <Route path="/factures" element={<FacturesPage />} />
             <Route path="/equipe" element={<EquipePage />} />

@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { X, Trash2 } from "lucide-react";
+import { X, Trash2, ChevronDown } from "lucide-react";
 import { creerArticle, modifierArticle, desactiverArticle } from "../../services/articlesService";
 import { useAuth } from "../../hooks/useAuth";
 import type { Article } from "../../types";
@@ -21,6 +21,13 @@ export function ArticleFormModal({ onFerme, onCree, onModifie, onSupprime, artic
   const [prixAchat, setPrixAchat] = useState(String(articleAModifier?.prix_achat ?? ""));
   const [prixVente, setPrixVente] = useState(String(articleAModifier?.prix_vente ?? ""));
   const [seuilAlerte, setSeuilAlerte] = useState(String(articleAModifier?.seuil_alerte ?? "5"));
+  const [tarificationOuverte, setTarificationOuverte] = useState(
+    !!(articleAModifier?.prix_demi_gros || articleAModifier?.prix_gros)
+  );
+  const [prixDemiGros, setPrixDemiGros] = useState(String(articleAModifier?.prix_demi_gros ?? ""));
+  const [seuilDemiGros, setSeuilDemiGros] = useState(String(articleAModifier?.seuil_demi_gros ?? ""));
+  const [prixGros, setPrixGros] = useState(String(articleAModifier?.prix_gros ?? ""));
+  const [seuilGros, setSeuilGros] = useState(String(articleAModifier?.seuil_gros ?? ""));
   const [enCours, setEnCours] = useState(false);
   const [suppressionEnCours, setSuppressionEnCours] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -38,6 +45,10 @@ export function ArticleFormModal({ onFerme, onCree, onModifie, onSupprime, artic
           prix_achat: Number(prixAchat),
           prix_vente: Number(prixVente),
           seuil_alerte: Number(seuilAlerte),
+          prix_demi_gros: prixDemiGros ? Number(prixDemiGros) : null,
+          seuil_demi_gros: seuilDemiGros ? Number(seuilDemiGros) : null,
+          prix_gros: prixGros ? Number(prixGros) : null,
+          seuil_gros: seuilGros ? Number(seuilGros) : null,
         };
         await modifierArticle(articleAModifier.id, champs);
         onModifie?.(articleAModifier.id, champs);
@@ -51,6 +62,10 @@ export function ArticleFormModal({ onFerme, onCree, onModifie, onSupprime, artic
             seuil_alerte: Number(seuilAlerte),
             categorie_id: null,
             reference: null,
+            prix_demi_gros: prixDemiGros ? Number(prixDemiGros) : null,
+            seuil_demi_gros: seuilDemiGros ? Number(seuilDemiGros) : null,
+            prix_gros: prixGros ? Number(prixGros) : null,
+            seuil_gros: seuilGros ? Number(seuilGros) : null,
           },
           entreprise.id
         );
@@ -153,6 +168,66 @@ export function ArticleFormModal({ onFerme, onCree, onModifie, onSupprime, artic
               className="w-full mt-1 border border-stone-300 rounded-lg py-2 px-3 text-sm"
             />
           </div>
+        </div>
+
+        <div className="border border-stone-200 rounded-lg overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setTarificationOuverte((v) => !v)}
+            className="w-full flex items-center justify-between px-3 py-2.5 text-sm font-medium text-stone-600 bg-stone-50"
+          >
+            Tarification gros / demi-gros (optionnel)
+            <ChevronDown size={16} className={`transition-transform ${tarificationOuverte ? "rotate-180" : ""}`} />
+          </button>
+          {tarificationOuverte && (
+            <div className="p-3 space-y-3">
+              <p className="text-[11px] text-stone-400">
+                Laisse vide pour vendre uniquement au prix détail. Le tarif se
+                déclenche soit par quantité (seuil), soit automatiquement pour
+                un client classé "demi-gros" ou "gros".
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-medium text-stone-500">Prix demi-gros (F)</label>
+                  <input
+                    type="number"
+                    value={prixDemiGros}
+                    onChange={(e) => setPrixDemiGros(e.target.value)}
+                    className="w-full mt-1 border border-stone-300 rounded-lg py-2 px-3 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-stone-500">À partir de (qté)</label>
+                  <input
+                    type="number"
+                    value={seuilDemiGros}
+                    onChange={(e) => setSeuilDemiGros(e.target.value)}
+                    className="w-full mt-1 border border-stone-300 rounded-lg py-2 px-3 text-sm"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-medium text-stone-500">Prix gros (F)</label>
+                  <input
+                    type="number"
+                    value={prixGros}
+                    onChange={(e) => setPrixGros(e.target.value)}
+                    className="w-full mt-1 border border-stone-300 rounded-lg py-2 px-3 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-stone-500">À partir de (qté)</label>
+                  <input
+                    type="number"
+                    value={seuilGros}
+                    onChange={(e) => setSeuilGros(e.target.value)}
+                    className="w-full mt-1 border border-stone-300 rounded-lg py-2 px-3 text-sm"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {erreur && <p className="text-sm text-red-600">{erreur}</p>}

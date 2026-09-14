@@ -10,7 +10,7 @@
  * que localStorage.
  */
 
-const CLE_FILE_VENTES = "quincaillerie_file_ventes_en_attente";
+const CLE_FILE_VENTES = "akweo_file_ventes_en_attente";
 
 export interface VenteEnAttente {
   id_local: string;

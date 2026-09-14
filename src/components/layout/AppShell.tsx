@@ -12,6 +12,9 @@ import {
   Wifi,
   WifiOff,
   LogOut,
+  Handshake,
+  Truck,
+  Beer,
 } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
 import { useSyncHorsLigne } from "../../hooks/useSyncHorsLigne";
@@ -28,6 +31,9 @@ export function AppShell() {
     { to: "/vente", label: "Vente", icone: ShoppingCart, visible: true },
     { to: "/stock", label: "Stock", icone: Package, visible: estGerantOuComptable },
     { to: "/inventaire", label: "Inventaire", icone: ClipboardList, visible: estGerantOuComptable },
+    { to: "/fournisseurs", label: "Fournisseurs", icone: Handshake, visible: estGerantOuComptable },
+    { to: "/livraisons", label: "Livraisons", icone: Truck, visible: true },
+    { to: "/depot-boissons", label: "Dépôt boissons", icone: Beer, visible: estGerantOuComptable },
     { to: "/clients", label: "Clients", icone: Users, visible: true },
     { to: "/factures", label: "Factures", icone: FileText, visible: true },
     { to: "/equipe", label: "Équipe", icone: UserCog, visible: role === "gerant" },

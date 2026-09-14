@@ -34,7 +34,7 @@ export function LoginPage() {
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <h1 className="font-display text-3xl font-bold text-stone-900">
-            Gestion Quincaillerie
+            Akweo
           </h1>
           <p className="text-stone-500 text-sm mt-1">Connecte-toi à ton compte</p>
         </div>

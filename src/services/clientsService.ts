@@ -12,12 +12,21 @@ export async function listerClients(): Promise<Client[]> {
 }
 
 export async function creerClient(
-  client: Omit<Client, "id" | "entreprise_id" | "solde_credit">,
+  client: Omit<
+    Client,
+    "id" | "entreprise_id" | "solde_credit" | "solde_consigne_casiers" | "solde_consigne_bouteilles"
+  >,
   entrepriseId: string
 ): Promise<Client> {
   const { data, error } = await supabase
     .from("clients")
-    .insert({ ...client, entreprise_id: entrepriseId, solde_credit: 0 })
+    .insert({
+      ...client,
+      entreprise_id: entrepriseId,
+      solde_credit: 0,
+      solde_consigne_casiers: 0,
+      solde_consigne_bouteilles: 0,
+    })
     .select()
     .single();
 

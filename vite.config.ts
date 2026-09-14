@@ -10,9 +10,9 @@ export default defineConfig({
       registerType: "autoUpdate",
       includeAssets: ["favicon.ico"],
       manifest: {
-        name: "Gestion Quincaillerie",
-        short_name: "Quincaillerie",
-        description: "Gestion de stock, ventes et facturation pour quincaillerie",
+        name: "Akweo",
+        short_name: "Akweo",
+        description: "Akweo — gestion de stock, ventes, fournisseurs et livraisons pour commerces",
         theme_color: "#1c1917",
         background_color: "#fafaf9",
         display: "standalone",

@@ -56,7 +56,7 @@ async function envoyerEmailBrevo(sujet: string, contenuHtml: string) {
       "api-key": apiKey,
     },
     body: JSON.stringify({
-      sender: { email: emailExpediteur, name: "Quincaillerie SaaS" },
+      sender: { email: emailExpediteur, name: "Akweo" },
       to: [{ email: emailDestinataire }],
       subject: sujet,
       htmlContent: contenuHtml,

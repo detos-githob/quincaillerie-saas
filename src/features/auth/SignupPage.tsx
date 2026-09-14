@@ -102,7 +102,7 @@ export function SignupPage() {
               value={nomEntreprise}
               onChange={(e) => setNomEntreprise(e.target.value)}
               className="w-full mt-1 border border-stone-300 rounded-lg py-2.5 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
-              placeholder="Quincaillerie ATTIOGBE"
+              placeholder="Quincaillerie ATTIOGBE, Dépôt Boissons ATTIOGBE..."
             />
           </div>
 

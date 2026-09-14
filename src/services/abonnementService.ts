@@ -12,7 +12,7 @@ export const OFFRES: Offre[] = [
   {
     id: "starter",
     nom: "Starter",
-    description: "Idéal pour une petite quincaillerie",
+    description: "Idéal pour un petit commerce",
     prixMensuel: 3000,
     prixAnnuel: 35000,
   },

@@ -4,7 +4,8 @@ import { useAuth } from "../../hooks/useAuth";
 import { listerArticles } from "../../services/articlesService";
 import { listerClients, creerClient } from "../../services/clientsService";
 import { enregistrerVente } from "../../services/ventesService";
-import type { Article, Client, ModePaiement, TypeFacture } from "../../types";
+import { prixUnitaireApplicable, LABELS_TYPE_CLIENT } from "../../lib/tarification";
+import type { Article, Client, ModePaiement, TypeClient, TypeFacture } from "../../types";
 
 function formatFCFA(montant: number): string {
   return Math.round(montant).toLocaleString("fr-FR") + " F";
@@ -54,7 +55,16 @@ export function VentePage() {
     });
   }, [articles, categorieChoisie, recherche]);
 
-  const total = panier.reduce((s, l) => s + l.article.prix_vente * l.quantite, 0);
+  const typeClientActuel: TypeClient = useMemo(() => {
+    if (!clientId) return "detail";
+    return clients.find((c) => c.id === clientId)?.type_client || "detail";
+  }, [clientId, clients]);
+
+  function prixLigne(ligne: LigneCourante): number {
+    return prixUnitaireApplicable(ligne.article, ligne.quantite, typeClientActuel);
+  }
+
+  const total = panier.reduce((s, l) => s + prixLigne(l) * l.quantite, 0);
   const nombreArticles = panier.reduce((s, l) => s + l.quantite, 0);
 
   function ajouterAuPanier(article: Article) {
@@ -105,7 +115,7 @@ export function VentePage() {
       let clientFinal = clientId;
       if (nouveauClientNom.trim()) {
         const nouveauClient = await creerClient(
-          { nom: nouveauClientNom.trim(), telephone: nouveauClientTelephone.trim() || null, adresse: null, ifu: null },
+          { nom: nouveauClientNom.trim(), telephone: nouveauClientTelephone.trim() || null, adresse: null, ifu: null, type_client: "detail" },
           entreprise.id
         );
         clientFinal = nouveauClient.id;
@@ -122,7 +132,7 @@ export function VentePage() {
           article_id: l.article.id,
           designation: l.article.designation,
           quantite: l.quantite,
-          prix_unitaire: l.article.prix_vente,
+          prix_unitaire: prixLigne(l),
           prix_achat_unitaire: l.article.prix_achat,
           remise: 0,
         })),
@@ -276,12 +286,18 @@ export function VentePage() {
             </div>
 
             <div className="overflow-y-auto flex-1 px-4 py-2">
-              {panier.map((ligne) => (
+              {panier.map((ligne) => {
+                const prixApplique = prixLigne(ligne);
+                const tarifPreferentiel = prixApplique !== ligne.article.prix_vente;
+                return (
                 <div key={ligne.article.id} className="flex items-center justify-between py-3 border-b border-stone-100 last:border-0">
                   <div className="flex-1 min-w-0 pr-2">
                     <p className="text-sm font-medium text-stone-900 truncate">{ligne.article.designation}</p>
                     <p className="text-xs text-stone-400 mt-0.5">
-                      {formatFCFA(ligne.article.prix_vente)} / {ligne.article.unite}
+                      {formatFCFA(prixApplique)} / {ligne.article.unite}
+                      {tarifPreferentiel && (
+                        <span className="text-amber-600 font-medium"> · tarif {LABELS_TYPE_CLIENT[typeClientActuel]}</span>
+                      )}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -301,14 +317,15 @@ export function VentePage() {
                       <Plus size={14} />
                     </button>
                     <span className="font-display text-lg font-bold text-stone-900 w-20 text-right">
-                      {formatFCFA(ligne.article.prix_vente * ligne.quantite)}
+                      {formatFCFA(prixApplique * ligne.quantite)}
                     </span>
                     <button onClick={() => retirerDuPanier(ligne.article.id)} className="text-stone-300 hover:text-red-500 ml-1">
                       <X size={16} />
                     </button>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
 
             <div className="border-t border-stone-100 px-4 py-3 space-y-3">
@@ -323,9 +340,15 @@ export function VentePage() {
                   {clients.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.nom}
+                      {c.type_client !== "detail" ? ` (${LABELS_TYPE_CLIENT[c.type_client]})` : ""}
                     </option>
                   ))}
                 </select>
+                {typeClientActuel !== "detail" && (
+                  <p className="text-[11px] text-amber-600 mt-1 font-medium">
+                    Tarif {LABELS_TYPE_CLIENT[typeClientActuel]} appliqué aux articles concernés.
+                  </p>
+                )}
 
                 <p className="text-xs font-medium text-stone-500 mt-2.5">
                   Ou nouveau client (rempli automatiquement à l'encaissement)

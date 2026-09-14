@@ -1,7 +1,10 @@
 -- =====================================================================
--- SCHEMA SAAS GESTION QUINCAILLERIE - Bénin
+-- SCHEMA AKWEO - SaaS de gestion commerciale (Bénin)
 -- Base : PostgreSQL (Supabase)
 -- Architecture : Multi-tenant avec isolation par Row Level Security (RLS)
+-- Verticaux couverts : commerce général / quincaillerie (schéma de base),
+-- vente en gros & demi-gros + fournisseurs (migration_fournisseurs.sql),
+-- dépôt de boissons - casiers/consignes (migration_depot_boissons.sql)
 -- =====================================================================
 
 -- ---------------------------------------------------------------------

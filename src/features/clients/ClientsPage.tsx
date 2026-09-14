@@ -2,7 +2,8 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Plus, X, User } from "lucide-react";
 import { listerClients, creerClient, enregistrerPaiementClient } from "../../services/clientsService";
 import { useAuth } from "../../hooks/useAuth";
-import type { Client } from "../../types";
+import { LABELS_TYPE_CLIENT } from "../../lib/tarification";
+import type { Client, TypeClient } from "../../types";
 
 function formatFCFA(montant: number): string {
   return Math.round(montant).toLocaleString("fr-FR") + " F";
@@ -44,8 +45,20 @@ export function ClientsPage() {
                 <User size={16} className="text-stone-400" />
               </span>
               <div className="min-w-0">
-                <p className="text-sm font-medium text-stone-900 truncate">{client.nom}</p>
-                <p className="text-xs text-stone-400">{client.telephone || "Pas de téléphone"}</p>
+                <p className="text-sm font-medium text-stone-900 truncate flex items-center gap-1.5">
+                  {client.nom}
+                  {client.type_client !== "detail" && (
+                    <span className="text-[10px] font-semibold uppercase tracking-wide text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5">
+                      {LABELS_TYPE_CLIENT[client.type_client]}
+                    </span>
+                  )}
+                </p>
+                <p className="text-xs text-stone-400">
+                  {client.telephone || "Pas de téléphone"}
+                  {client.solde_consigne_casiers > 0 && (
+                    <span className="text-slate-500"> · {client.solde_consigne_casiers} casier(s) consigné(s)</span>
+                  )}
+                </p>
               </div>
             </div>
             {client.solde_credit > 0 ? (
@@ -102,6 +115,7 @@ function ModaleNouveauClient({
   const { entreprise } = useAuth();
   const [nom, setNom] = useState("");
   const [telephone, setTelephone] = useState("");
+  const [typeClient, setTypeClient] = useState<TypeClient>("detail");
   const [enCours, setEnCours] = useState(false);
 
   async function gererSoumission(e: FormEvent) {
@@ -109,7 +123,7 @@ function ModaleNouveauClient({
     if (!entreprise) return;
     setEnCours(true);
     const client = await creerClient(
-      { nom, telephone: telephone || null, adresse: null, ifu: null },
+      { nom, telephone: telephone || null, adresse: null, ifu: null, type_client: typeClient },
       entreprise.id
     );
     onCree(client);
@@ -142,6 +156,26 @@ function ModaleNouveauClient({
             onChange={(e) => setTelephone(e.target.value)}
             className="w-full mt-1 border border-stone-300 rounded-lg py-2 px-3 text-sm"
           />
+        </div>
+        <div>
+          <label className="text-xs font-medium text-stone-500">Type de client</label>
+          <div className="grid grid-cols-3 gap-2 mt-1">
+            {(["detail", "demi_gros", "gros"] as TypeClient[]).map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setTypeClient(t)}
+                className={`py-2 rounded-lg text-sm font-medium border ${
+                  typeClient === t ? "bg-slate-700 text-white border-slate-700" : "bg-white text-stone-600 border-stone-300"
+                }`}
+              >
+                {LABELS_TYPE_CLIENT[t]}
+              </button>
+            ))}
+          </div>
+          <p className="text-[11px] text-stone-400 mt-1">
+            Détermine le tarif automatiquement appliqué à la vente pour ce client.
+          </p>
         </div>
         <button
           type="submit"
