@@ -1,11 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Navigate } from "react-router-dom";
-import { Building2, X } from "lucide-react";
+import { Building2, X, Sparkles } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
 import { listerEntreprisesAdmin, modifierAbonnement } from "../../services/adminService";
 import { calculerStatutAbonnement } from "../../lib/abonnement";
-import { libelleSecteurActivite } from "../../lib/secteurActivite";
-import type { Entreprise } from "../../types";
+import { libelleSecteurActivite, LABELS_SECTEUR_ACTIVITE, OPTIONS_SECTEUR_ACTIVITE } from "../../lib/secteurActivite";
+import type { Entreprise, SecteurActivite } from "../../types";
 
 const STYLES_STATUT: Record<string, { bg: string; texte: string; label: string }> = {
   illimite: { bg: "bg-slate-100", texte: "text-slate-600", label: "Illimité" },
@@ -14,11 +14,19 @@ const STYLES_STATUT: Record<string, { bg: string; texte: string; label: string }
   expire: { bg: "bg-red-100", texte: "text-red-700", label: "Expiré" },
 };
 
+const MS_48H = 48 * 60 * 60 * 1000;
+
+function estRecente(entreprise: Entreprise): boolean {
+  if (!entreprise.created_at) return false;
+  return Date.now() - new Date(entreprise.created_at).getTime() < MS_48H;
+}
+
 export function AdminPage() {
   const { estSuperAdmin, chargement: chargementAuth } = useAuth();
   const [entreprises, setEntreprises] = useState<Entreprise[]>([]);
   const [chargement, setChargement] = useState(true);
   const [entrepriseEnEdition, setEntrepriseEnEdition] = useState<Entreprise | null>(null);
+  const [secteurFiltre, setSecteurFiltre] = useState<SecteurActivite | "tous">("tous");
 
   useEffect(() => {
     if (!estSuperAdmin) return;
@@ -26,6 +34,27 @@ export function AdminPage() {
       .then(setEntreprises)
       .finally(() => setChargement(false));
   }, [estSuperAdmin]);
+
+  const entreprisesFiltrees = useMemo(
+    () =>
+      secteurFiltre === "tous"
+        ? entreprises
+        : entreprises.filter((e) => e.secteur_activite === secteurFiltre),
+    [entreprises, secteurFiltre]
+  );
+
+  // Regroupées par secteur (dans l'ordre du sélecteur d'inscription),
+  // chaque groupe trié par date d'inscription la plus récente d'abord.
+  const groupesParSecteur = useMemo(() => {
+    return OPTIONS_SECTEUR_ACTIVITE.map((secteur) => ({
+      secteur,
+      entreprises: entreprisesFiltrees
+        .filter((e) => e.secteur_activite === secteur)
+        .sort((a, b) => (b.created_at || "").localeCompare(a.created_at || "")),
+    })).filter((g) => g.entreprises.length > 0);
+  }, [entreprisesFiltrees]);
+
+  const nombreRecentes = useMemo(() => entreprises.filter(estRecente).length, [entreprises]);
 
   if (!chargementAuth && !estSuperAdmin) {
     return <Navigate to="/" replace />;
@@ -44,47 +73,107 @@ export function AdminPage() {
       `}</style>
 
       <header className="bg-stone-900 text-stone-50 px-5 py-4">
-        <h1 className="font-display text-2xl font-bold">Administration — Abonnements</h1>
-        <p className="text-stone-400 text-xs mt-0.5">
-          {entreprises.length} entreprise{entreprises.length > 1 ? "s" : ""} inscrite
-          {entreprises.length > 1 ? "s" : ""}
-        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="font-display text-2xl font-bold">Administration — Abonnements</h1>
+            <p className="text-stone-400 text-xs mt-0.5">
+              {entreprises.length} entreprise{entreprises.length > 1 ? "s" : ""} inscrite
+              {entreprises.length > 1 ? "s" : ""}
+            </p>
+          </div>
+          {nombreRecentes > 0 && (
+            <span className="flex items-center gap-1.5 text-xs font-medium bg-amber-500 text-stone-900 px-2.5 py-1.5 rounded-full shrink-0">
+              <Sparkles size={13} />
+              {nombreRecentes} nouvelle{nombreRecentes > 1 ? "s" : ""} (48h)
+            </span>
+          )}
+        </div>
       </header>
 
       <main className="max-w-3xl mx-auto px-4 py-5">
-        <div className="bg-white border border-stone-200 rounded-xl divide-y divide-stone-100">
-          {entreprises.map((entreprise) => {
-            const { statut, joursRestants } = calculerStatutAbonnement(entreprise);
-            const style = STYLES_STATUT[statut];
+        {/* Filtre par secteur d'activité */}
+        <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
+          <button
+            onClick={() => setSecteurFiltre("tous")}
+            className={`shrink-0 px-3 py-1.5 rounded-full text-sm font-medium border ${
+              secteurFiltre === "tous"
+                ? "bg-stone-900 text-white border-stone-900"
+                : "bg-white text-stone-600 border-stone-300"
+            }`}
+          >
+            Tous
+          </button>
+          {OPTIONS_SECTEUR_ACTIVITE.map((s) => {
+            const nb = entreprises.filter((e) => e.secteur_activite === s).length;
+            if (nb === 0) return null;
             return (
               <button
-                key={entreprise.id}
-                onClick={() => setEntrepriseEnEdition(entreprise)}
-                className="w-full flex items-center justify-between p-4 text-left"
+                key={s}
+                onClick={() => setSecteurFiltre(s)}
+                className={`shrink-0 px-3 py-1.5 rounded-full text-sm font-medium border ${
+                  secteurFiltre === s
+                    ? "bg-stone-900 text-white border-stone-900"
+                    : "bg-white text-stone-600 border-stone-300"
+                }`}
               >
-                <div className="flex items-center gap-3 min-w-0">
-                  <span className="flex items-center justify-center w-9 h-9 rounded-lg bg-stone-100 shrink-0">
-                    <Building2 size={16} className="text-stone-400" />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-stone-900 truncate">{entreprise.nom}</p>
-                    <p className="text-xs text-stone-400">
-                      {libelleSecteurActivite(entreprise.secteur_activite, entreprise.secteur_activite_autre)}
-                      {" · "}
-                      {entreprise.plan_abonnement} · {entreprise.periodicite_abonnement || "—"}
-                      {joursRestants !== null &&
-                        ` · ${joursRestants >= 0 ? `${joursRestants}j restants` : `expiré depuis ${-joursRestants}j`}`}
-                    </p>
-                  </div>
-                </div>
-                <span className={`text-xs font-medium px-2 py-1 rounded shrink-0 ${style.bg} ${style.texte}`}>
-                  {style.label}
-                </span>
+                {LABELS_SECTEUR_ACTIVITE[s]} ({nb})
               </button>
             );
           })}
-          {entreprises.length === 0 && (
-            <p className="p-6 text-center text-stone-400 text-sm">Aucune entreprise inscrite.</p>
+        </div>
+
+        {/* Liste groupée par secteur */}
+        <div className="space-y-5">
+          {groupesParSecteur.map((groupe) => (
+            <div key={groupe.secteur}>
+              <p className="text-xs font-semibold uppercase tracking-wide text-stone-400 mb-2 px-1">
+                {LABELS_SECTEUR_ACTIVITE[groupe.secteur]} ({groupe.entreprises.length})
+              </p>
+              <div className="bg-white border border-stone-200 rounded-xl divide-y divide-stone-100">
+                {groupe.entreprises.map((entreprise) => {
+                  const { statut, joursRestants } = calculerStatutAbonnement(entreprise);
+                  const style = STYLES_STATUT[statut];
+                  return (
+                    <button
+                      key={entreprise.id}
+                      onClick={() => setEntrepriseEnEdition(entreprise)}
+                      className="w-full flex items-center justify-between p-4 text-left"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span className="flex items-center justify-center w-9 h-9 rounded-lg bg-stone-100 shrink-0">
+                          <Building2 size={16} className="text-stone-400" />
+                        </span>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-stone-900 truncate flex items-center gap-1.5">
+                            {entreprise.nom}
+                            {estRecente(entreprise) && (
+                              <span className="text-[10px] font-semibold uppercase tracking-wide text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 shrink-0">
+                                Nouveau
+                              </span>
+                            )}
+                          </p>
+                          <p className="text-xs text-stone-400">
+                            {entreprise.secteur_activite === "autre" &&
+                              `${libelleSecteurActivite(entreprise.secteur_activite, entreprise.secteur_activite_autre)} · `}
+                            {entreprise.plan_abonnement} · {entreprise.periodicite_abonnement || "—"}
+                            {joursRestants !== null &&
+                              ` · ${joursRestants >= 0 ? `${joursRestants}j restants` : `expiré depuis ${-joursRestants}j`}`}
+                          </p>
+                        </div>
+                      </div>
+                      <span className={`text-xs font-medium px-2 py-1 rounded shrink-0 ${style.bg} ${style.texte}`}>
+                        {style.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+          {groupesParSecteur.length === 0 && (
+            <div className="bg-white border border-stone-200 rounded-xl p-6 text-center text-stone-400 text-sm">
+              Aucune entreprise {secteurFiltre !== "tous" ? "dans ce secteur" : "inscrite"}.
+            </div>
           )}
         </div>
       </main>

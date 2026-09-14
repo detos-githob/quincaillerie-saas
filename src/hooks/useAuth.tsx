@@ -104,6 +104,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data, error } = await supabase.auth.signUp({
       email,
       password: motDePasse,
+      options: {
+        // Une fois le lien de confirmation cliqué, Supabase redirige ici
+        // avec une session déjà valide. LoginPage détecte cette session
+        // et renvoie directement vers "/", où ProtectedRoute redirige à
+        // son tour vers /completer-inscription tant qu'aucune entreprise
+        // n'est encore associée au compte — l'utilisateur peut donc
+        // enchaîner sans avoir à ressaisir son mot de passe.
+        emailRedirectTo: `${window.location.origin}/login`,
+      },
     });
     if (error) {
       return { erreur: traduireErreurAuth(error.message), confirmationRequise: false };

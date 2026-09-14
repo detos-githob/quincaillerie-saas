@@ -1,14 +1,23 @@
 import { useState, type FormEvent } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Navigate, Link } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 
 export function LoginPage() {
-  const { connexion } = useAuth();
+  const { connexion, session, chargement } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [motDePasse, setMotDePasse] = useState("");
   const [erreur, setErreur] = useState<string | null>(null);
   const [enCours, setEnCours] = useState(false);
+
+  // Cas du lien de confirmation d'email : Supabase établit déjà une
+  // session valide en arrivant ici. Inutile de faire ressaisir le mot
+  // de passe — on renvoie directement vers "/", où ProtectedRoute
+  // redirige vers /completer-inscription tant que l'entreprise n'est
+  // pas encore créée.
+  if (!chargement && session) {
+    return <Navigate to="/" replace />;
+  }
 
   async function gererSoumission(e: FormEvent) {
     e.preventDefault();

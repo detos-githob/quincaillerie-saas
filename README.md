@@ -45,6 +45,9 @@ suite.
      (dépôt de boissons)
    - `migration_secteur_activite.sql` — secteur d'activité de l'entreprise
      (adapte la navigation à l'inscription)
+   - `migration_notification_inscription.sql` — notifie l'admin par email
+     à chaque nouvelle inscription (nécessite aussi de déployer la
+     fonction `notifier-nouvelle-inscription`, voir plus bas)
 
 ## 2. Configurer le projet local
 
@@ -175,6 +178,37 @@ Puis, comme pour ton portfolio :
   le dépôt de boissons)
 - Sur mobile, au-delà de 4 onglets la barre basse affiche un bouton
   **Plus** qui ouvre la liste complète des modules disponibles
+
+### Espace admin (super admin) & notifications d'inscription
+
+- L'espace `/admin` filtre les entreprises par secteur d'activité (pilules
+  avec compteur) et les regroupe par secteur dans la liste
+- Un badge **Nouveau** est affiché sur les entreprises inscrites il y a
+  moins de 48h, avec un compteur global dans l'en-tête
+- À chaque inscription, un trigger PostgreSQL (`migration_notification_
+  inscription.sql`) appelle la fonction Edge `notifier-nouvelle-
+  inscription`, qui t'envoie un email via Brevo — indépendamment de
+  l'app, tu es notifié même sans être connecté à l'espace admin
+- Après avoir exécuté la migration, déploie la fonction Edge :
+  ```bash
+  supabase functions deploy notifier-nouvelle-inscription
+  ```
+  Elle réutilise les secrets déjà en place pour `verifier-abonnements-
+  expiration` (`BREVO_API_KEY`, `BREVO_SENDER_EMAIL`, `ADMIN_EMAIL`,
+  `CRON_SECRET`) — rien à reconfigurer si ceux-ci sont déjà définis.
+
+### Confirmation d'email → retour direct vers l'app
+
+- Le lien de confirmation envoyé à l'inscription redirige maintenant vers
+  `/login` de l'app plutôt que nulle part. La session étant déjà valide à
+  ce moment-là, l'utilisateur est immédiatement renvoyé vers l'écran de
+  création d'entreprise (`/completer-inscription`) sans avoir à ressaisir
+  son mot de passe.
+- **Important** : dans Supabase, va dans `Authentication` → `URL
+  Configuration` et ajoute l'URL de ton app (ex: `https://
+  quincallerie.denistossou.com/login` ou `http://localhost:5173/login`
+  en dev) à la liste **Redirect URLs** — sinon Supabase refusera la
+  redirection et retombera sur le comportement par défaut.
 
 ## Roadmap (prochaines phases)
 
