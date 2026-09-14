@@ -8,6 +8,7 @@ export function CompleterInscriptionPage() {
   const navigate = useNavigate();
 
   const [nomEntreprise, setNomEntreprise] = useState("");
+  const [secteurActivite, setSecteurActivite] = useState<"quincaillerie" | "depot_boissons">("quincaillerie");
   const [regimeFiscal, setRegimeFiscal] = useState<"forfait" | "reel">("forfait");
   const [telephoneEntreprise, setTelephoneEntreprise] = useState("");
   const [nomGerant, setNomGerant] = useState("");
@@ -28,6 +29,7 @@ export function CompleterInscriptionPage() {
         p_regime_fiscal: regimeFiscal,
         p_telephone: telephoneEntreprise || null,
         p_nom_gerant: nomGerant,
+        p_secteur_activite: secteurActivite,
       });
       if (error) throw error;
 
@@ -64,6 +66,31 @@ export function CompleterInscriptionPage() {
               onChange={(e) => setNomEntreprise(e.target.value)}
               className="w-full mt-1 border border-stone-300 rounded-lg py-2.5 px-3 text-sm"
             />
+          </div>
+
+          <div>
+            <label className="text-xs font-medium text-stone-500">Secteur d'activité</label>
+            <div className="grid grid-cols-2 gap-2 mt-1">
+              {(
+                [
+                  { id: "quincaillerie", label: "Quincaillerie" },
+                  { id: "depot_boissons", label: "Dépôt de boissons" },
+                ] as const
+              ).map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => setSecteurActivite(s.id)}
+                  className={`py-2.5 rounded-lg text-sm font-medium border ${
+                    secteurActivite === s.id
+                      ? "bg-stone-900 text-white border-stone-900"
+                      : "bg-white text-stone-600 border-stone-300"
+                  }`}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">

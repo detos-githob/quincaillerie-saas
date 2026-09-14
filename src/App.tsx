@@ -13,15 +13,15 @@ import { ClientsPage } from "./features/clients/ClientsPage";
 import { FacturesPage } from "./features/factures/FacturesPage";
 import { InventairePage } from "./features/inventaire/InventairePage";
 import { InventaireDetailPage } from "./features/inventaire/InventaireDetailPage";
-import { FournisseursPage } from "./features/fournisseurs/FournisseursPage";
-import { FournisseurDetailPage } from "./features/fournisseurs/FournisseurDetailPage";
-import { LivraisonsPage } from "./features/livraisons/LivraisonsPage";
-import { DepotBoissonsPage } from "./features/depot-boissons/DepotBoissonsPage";
 import { EquipePage } from "./features/equipe/EquipePage";
 import { AdminPage } from "./features/admin/AdminPage";
 import { MonAbonnementPage } from "./features/abonnement/MonAbonnementPage";
 import { OffresPage } from "./features/abonnement/OffresPage";
 import { PaiementPage } from "./features/abonnement/PaiementPage";
+import { FournisseursPage } from "./features/fournisseurs/FournisseursPage";
+import { LivraisonsPage } from "./features/livraisons/LivraisonsPage";
+import { ConsignesPage } from "./features/consignes/ConsignesPage";
+import { CassesPage } from "./features/casses/CassesPage";
 
 export default function App() {
   return (
@@ -44,10 +44,6 @@ export default function App() {
             <Route path="/stock" element={<StockPage />} />
             <Route path="/inventaire" element={<InventairePage />} />
             <Route path="/inventaire/:id" element={<InventaireDetailPage />} />
-            <Route path="/fournisseurs" element={<FournisseursPage />} />
-            <Route path="/fournisseurs/:id" element={<FournisseurDetailPage />} />
-            <Route path="/livraisons" element={<LivraisonsPage />} />
-            <Route path="/depot-boissons" element={<DepotBoissonsPage />} />
             <Route path="/clients" element={<ClientsPage />} />
             <Route path="/factures" element={<FacturesPage />} />
             <Route path="/equipe" element={<EquipePage />} />
@@ -55,6 +51,10 @@ export default function App() {
             <Route path="/mon-abonnement" element={<MonAbonnementPage />} />
             <Route path="/offres" element={<OffresPage />} />
             <Route path="/paiement" element={<PaiementPage />} />
+            <Route path="/fournisseurs" element={<FournisseursPage />} />
+            <Route path="/livraisons" element={<LivraisonsPage />} />
+            <Route path="/consignes" element={<ConsignesPage />} />
+            <Route path="/casses" element={<CassesPage />} />
           </Route>
         </Routes>
       </BrowserRouter>

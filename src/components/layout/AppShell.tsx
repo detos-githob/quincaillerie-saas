@@ -9,12 +9,13 @@ import {
   UserCog,
   ShieldCheck,
   CreditCard,
+  Truck,
+  MapPinned,
+  PackageOpen,
+  AlertOctagon,
   Wifi,
   WifiOff,
   LogOut,
-  Handshake,
-  Truck,
-  Beer,
 } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
 import { useSyncHorsLigne } from "../../hooks/useSyncHorsLigne";
@@ -25,15 +26,18 @@ export function AppShell() {
 
   const role = utilisateur?.role;
   const estGerantOuComptable = role === "gerant" || role === "comptable";
+  const estQuincaillerie = entreprise?.secteur_activite === "quincaillerie";
+  const estDepotBoissons = entreprise?.secteur_activite === "depot_boissons";
 
   const liensNav = [
     { to: "/", label: "Tableau de bord", icone: LayoutDashboard, fin: true, visible: estGerantOuComptable },
     { to: "/vente", label: "Vente", icone: ShoppingCart, visible: true },
     { to: "/stock", label: "Stock", icone: Package, visible: estGerantOuComptable },
     { to: "/inventaire", label: "Inventaire", icone: ClipboardList, visible: estGerantOuComptable },
-    { to: "/fournisseurs", label: "Fournisseurs", icone: Handshake, visible: estGerantOuComptable },
-    { to: "/livraisons", label: "Livraisons", icone: Truck, visible: true },
-    { to: "/depot-boissons", label: "Dépôt boissons", icone: Beer, visible: estGerantOuComptable },
+    { to: "/fournisseurs", label: "Fournisseurs", icone: Truck, visible: estGerantOuComptable && estQuincaillerie },
+    { to: "/livraisons", label: "Livraisons", icone: MapPinned, visible: estQuincaillerie },
+    { to: "/consignes", label: "Consignes", icone: PackageOpen, visible: estDepotBoissons },
+    { to: "/casses", label: "Casses", icone: AlertOctagon, visible: estGerantOuComptable && estDepotBoissons },
     { to: "/clients", label: "Clients", icone: Users, visible: true },
     { to: "/factures", label: "Factures", icone: FileText, visible: true },
     { to: "/equipe", label: "Équipe", icone: UserCog, visible: role === "gerant" },

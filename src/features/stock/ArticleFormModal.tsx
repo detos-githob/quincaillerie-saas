@@ -1,8 +1,9 @@
-import { useState, type FormEvent } from "react";
-import { X, Trash2, ChevronDown } from "lucide-react";
+import { useEffect, useState, type FormEvent } from "react";
+import { X, Trash2 } from "lucide-react";
 import { creerArticle, modifierArticle, desactiverArticle } from "../../services/articlesService";
+import { listerFournisseurs } from "../../services/fournisseursService";
 import { useAuth } from "../../hooks/useAuth";
-import type { Article } from "../../types";
+import type { Article, Fournisseur } from "../../types";
 
 interface Props {
   onFerme: () => void;
@@ -20,17 +21,19 @@ export function ArticleFormModal({ onFerme, onCree, onModifie, onSupprime, artic
   const [unite, setUnite] = useState(articleAModifier?.unite || "unité");
   const [prixAchat, setPrixAchat] = useState(String(articleAModifier?.prix_achat ?? ""));
   const [prixVente, setPrixVente] = useState(String(articleAModifier?.prix_vente ?? ""));
-  const [seuilAlerte, setSeuilAlerte] = useState(String(articleAModifier?.seuil_alerte ?? "5"));
-  const [tarificationOuverte, setTarificationOuverte] = useState(
-    !!(articleAModifier?.prix_demi_gros || articleAModifier?.prix_gros)
-  );
   const [prixDemiGros, setPrixDemiGros] = useState(String(articleAModifier?.prix_demi_gros ?? ""));
-  const [seuilDemiGros, setSeuilDemiGros] = useState(String(articleAModifier?.seuil_demi_gros ?? ""));
   const [prixGros, setPrixGros] = useState(String(articleAModifier?.prix_gros ?? ""));
-  const [seuilGros, setSeuilGros] = useState(String(articleAModifier?.seuil_gros ?? ""));
+  const [fournisseurId, setFournisseurId] = useState(articleAModifier?.fournisseur_id || "");
+  const [seuilAlerte, setSeuilAlerte] = useState(String(articleAModifier?.seuil_alerte ?? "5"));
+  const [montantConsigne, setMontantConsigne] = useState(String(articleAModifier?.montant_consigne ?? "0"));
+  const [fournisseurs, setFournisseurs] = useState<Fournisseur[]>([]);
   const [enCours, setEnCours] = useState(false);
   const [suppressionEnCours, setSuppressionEnCours] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
+
+  useEffect(() => {
+    listerFournisseurs().then(setFournisseurs).catch(() => {});
+  }, []);
 
   async function gererSoumission(e: FormEvent) {
     e.preventDefault();
@@ -38,35 +41,24 @@ export function ArticleFormModal({ onFerme, onCree, onModifie, onSupprime, artic
     setEnCours(true);
     setErreur(null);
     try {
+      const champsCommuns = {
+        designation,
+        unite,
+        prix_achat: Number(prixAchat),
+        prix_vente: Number(prixVente),
+        prix_demi_gros: prixDemiGros ? Number(prixDemiGros) : null,
+        prix_gros: prixGros ? Number(prixGros) : null,
+        fournisseur_id: fournisseurId || null,
+        seuil_alerte: Number(seuilAlerte),
+        montant_consigne: Number(montantConsigne) || 0,
+      };
+
       if (modeEdition && articleAModifier) {
-        const champs: Partial<Article> = {
-          designation,
-          unite,
-          prix_achat: Number(prixAchat),
-          prix_vente: Number(prixVente),
-          seuil_alerte: Number(seuilAlerte),
-          prix_demi_gros: prixDemiGros ? Number(prixDemiGros) : null,
-          seuil_demi_gros: seuilDemiGros ? Number(seuilDemiGros) : null,
-          prix_gros: prixGros ? Number(prixGros) : null,
-          seuil_gros: seuilGros ? Number(seuilGros) : null,
-        };
-        await modifierArticle(articleAModifier.id, champs);
-        onModifie?.(articleAModifier.id, champs);
+        await modifierArticle(articleAModifier.id, champsCommuns);
+        onModifie?.(articleAModifier.id, champsCommuns);
       } else {
         const article = await creerArticle(
-          {
-            designation,
-            unite,
-            prix_achat: Number(prixAchat),
-            prix_vente: Number(prixVente),
-            seuil_alerte: Number(seuilAlerte),
-            categorie_id: null,
-            reference: null,
-            prix_demi_gros: prixDemiGros ? Number(prixDemiGros) : null,
-            seuil_demi_gros: seuilDemiGros ? Number(seuilDemiGros) : null,
-            prix_gros: prixGros ? Number(prixGros) : null,
-            seuil_gros: seuilGros ? Number(seuilGros) : null,
-          },
+          { ...champsCommuns, categorie_id: null, reference: null },
           entreprise.id
         );
         onCree?.(article);
@@ -100,11 +92,11 @@ export function ArticleFormModal({ onFerme, onCree, onModifie, onSupprime, artic
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center px-4">
+    <div className="fixed inset-0 z-40 flex items-center justify-center px-4 py-8 overflow-y-auto">
       <div className="absolute inset-0 bg-stone-900/40" onClick={onFerme} />
       <form
         onSubmit={gererSoumission}
-        className="relative bg-white rounded-2xl w-full max-w-sm p-5 space-y-4"
+        className="relative bg-white rounded-2xl w-full max-w-sm p-5 space-y-4 max-h-full overflow-y-auto"
       >
         <div className="flex items-center justify-between">
           <h2 className="font-display text-xl font-bold text-stone-900">
@@ -147,87 +139,83 @@ export function ArticleFormModal({ onFerme, onCree, onModifie, onSupprime, artic
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-xs font-medium text-stone-500">Prix d'achat (F)</label>
-            <input
-              type="number"
-              required
-              value={prixAchat}
-              onChange={(e) => setPrixAchat(e.target.value)}
-              className="w-full mt-1 border border-stone-300 rounded-lg py-2 px-3 text-sm"
-            />
-          </div>
-          <div>
-            <label className="text-xs font-medium text-stone-500">Prix de vente (F)</label>
-            <input
-              type="number"
-              required
-              value={prixVente}
-              onChange={(e) => setPrixVente(e.target.value)}
-              className="w-full mt-1 border border-stone-300 rounded-lg py-2 px-3 text-sm"
-            />
-          </div>
+        <div>
+          <label className="text-xs font-medium text-stone-500">Prix d'achat (F)</label>
+          <input
+            type="number"
+            required
+            value={prixAchat}
+            onChange={(e) => setPrixAchat(e.target.value)}
+            className="w-full mt-1 border border-stone-300 rounded-lg py-2 px-3 text-sm"
+          />
         </div>
 
-        <div className="border border-stone-200 rounded-lg overflow-hidden">
-          <button
-            type="button"
-            onClick={() => setTarificationOuverte((v) => !v)}
-            className="w-full flex items-center justify-between px-3 py-2.5 text-sm font-medium text-stone-600 bg-stone-50"
-          >
-            Tarification gros / demi-gros (optionnel)
-            <ChevronDown size={16} className={`transition-transform ${tarificationOuverte ? "rotate-180" : ""}`} />
-          </button>
-          {tarificationOuverte && (
-            <div className="p-3 space-y-3">
-              <p className="text-[11px] text-stone-400">
-                Laisse vide pour vendre uniquement au prix détail. Le tarif se
-                déclenche soit par quantité (seuil), soit automatiquement pour
-                un client classé "demi-gros" ou "gros".
-              </p>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-medium text-stone-500">Prix demi-gros (F)</label>
-                  <input
-                    type="number"
-                    value={prixDemiGros}
-                    onChange={(e) => setPrixDemiGros(e.target.value)}
-                    className="w-full mt-1 border border-stone-300 rounded-lg py-2 px-3 text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-stone-500">À partir de (qté)</label>
-                  <input
-                    type="number"
-                    value={seuilDemiGros}
-                    onChange={(e) => setSeuilDemiGros(e.target.value)}
-                    className="w-full mt-1 border border-stone-300 rounded-lg py-2 px-3 text-sm"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-medium text-stone-500">Prix gros (F)</label>
-                  <input
-                    type="number"
-                    value={prixGros}
-                    onChange={(e) => setPrixGros(e.target.value)}
-                    className="w-full mt-1 border border-stone-300 rounded-lg py-2 px-3 text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-stone-500">À partir de (qté)</label>
-                  <input
-                    type="number"
-                    value={seuilGros}
-                    onChange={(e) => setSeuilGros(e.target.value)}
-                    className="w-full mt-1 border border-stone-300 rounded-lg py-2 px-3 text-sm"
-                  />
-                </div>
-              </div>
+        {entreprise?.secteur_activite === "depot_boissons" && (
+          <div>
+            <label className="text-xs font-medium text-stone-500">Montant de la consigne (F)</label>
+            <input
+              type="number"
+              value={montantConsigne}
+              onChange={(e) => setMontantConsigne(e.target.value)}
+              className="w-full mt-1 border border-stone-300 rounded-lg py-2 px-3 text-sm"
+              placeholder="0 si pas de consigne"
+            />
+          </div>
+        )}
+
+        <div>
+          <p className="text-xs font-medium text-stone-500 mb-1">Tarifs de vente</p>
+          <div className="grid grid-cols-3 gap-2">
+            <div>
+              <label className="text-[11px] text-stone-400">Détail *</label>
+              <input
+                type="number"
+                required
+                value={prixVente}
+                onChange={(e) => setPrixVente(e.target.value)}
+                className="w-full mt-1 border border-stone-300 rounded-lg py-2 px-2 text-sm"
+              />
             </div>
-          )}
+            <div>
+              <label className="text-[11px] text-stone-400">Demi-gros</label>
+              <input
+                type="number"
+                value={prixDemiGros}
+                onChange={(e) => setPrixDemiGros(e.target.value)}
+                className="w-full mt-1 border border-stone-300 rounded-lg py-2 px-2 text-sm"
+                placeholder="optionnel"
+              />
+            </div>
+            <div>
+              <label className="text-[11px] text-stone-400">Gros</label>
+              <input
+                type="number"
+                value={prixGros}
+                onChange={(e) => setPrixGros(e.target.value)}
+                className="w-full mt-1 border border-stone-300 rounded-lg py-2 px-2 text-sm"
+                placeholder="optionnel"
+              />
+            </div>
+          </div>
+          <p className="text-[11px] text-stone-400 mt-1">
+            Laisse vide si ce tarif ne s'applique pas à cet article — le prix détail sera utilisé par défaut.
+          </p>
+        </div>
+
+        <div>
+          <label className="text-xs font-medium text-stone-500">Fournisseur habituel</label>
+          <select
+            value={fournisseurId}
+            onChange={(e) => setFournisseurId(e.target.value)}
+            className="w-full mt-1 border border-stone-300 rounded-lg py-2 px-3 text-sm bg-white"
+          >
+            <option value="">Aucun</option>
+            {fournisseurs.map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.nom}
+              </option>
+            ))}
+          </select>
         </div>
 
         {erreur && <p className="text-sm text-red-600">{erreur}</p>}

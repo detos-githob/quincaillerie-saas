@@ -1,5 +1,5 @@
 import { supabase } from "../lib/supabaseClient";
-import type { LigneVenteInput, ModePaiement, TypeFacture } from "../types";
+import type { LigneVenteInput, ModePaiement, TypeFacture, TypeVente } from "../types";
 import {
   ajouterVenteEnAttente,
   listerVentesEnAttente,
@@ -13,6 +13,10 @@ export interface PayloadVente {
   p_mode_paiement: ModePaiement;
   p_lignes: LigneVenteInput[];
   p_type_facture: TypeFacture;
+  p_type_vente: TypeVente;
+  p_livraison: { adresse: string; date_prevue: string | null } | null;
+  p_consignes: { article_id: string; quantite: number; montant_unitaire: number }[] | null;
+  p_casiers_vides_recus: { article_id: string; quantite: number }[] | null;
 }
 
 export interface ResultatVente {
