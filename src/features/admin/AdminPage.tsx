@@ -1,20 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { Navigate } from "react-router-dom";
-import { Building2, X, Sparkles } from "lucide-react";
+import { Building2, X, Bell } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
 import { listerEntreprisesAdmin, modifierAbonnement } from "../../services/adminService";
-import { calculerStatutAbonnement } from "../../lib/abonnement";
+import { calculerStatutAbonnement, STYLES_STATUT_ABONNEMENT as STYLES_STATUT } from "../../lib/abonnement";
 import { libelleSecteurActivite, LABELS_SECTEUR_ACTIVITE, OPTIONS_SECTEUR_ACTIVITE } from "../../lib/secteurActivite";
 import type { Entreprise, SecteurActivite } from "../../types";
 
-const STYLES_STATUT: Record<string, { bg: string; texte: string; label: string }> = {
-  illimite: { bg: "bg-slate-100", texte: "text-slate-600", label: "Illimité" },
-  actif: { bg: "bg-emerald-100", texte: "text-emerald-700", label: "Actif" },
-  alerte: { bg: "bg-amber-100", texte: "text-amber-800", label: "Bientôt expiré" },
-  expire: { bg: "bg-red-100", texte: "text-red-700", label: "Expiré" },
-};
-
 const MS_48H = 48 * 60 * 60 * 1000;
+const MS_7J = 7 * 24 * 60 * 60 * 1000;
 
 function estRecente(entreprise: Entreprise): boolean {
   if (!entreprise.created_at) return false;
@@ -54,7 +48,26 @@ export function AdminPage() {
     })).filter((g) => g.entreprises.length > 0);
   }, [entreprisesFiltrees]);
 
-  const nombreRecentes = useMemo(() => entreprises.filter(estRecente).length, [entreprises]);
+  const [clocheOuverte, setClocheOuverte] = useState(false);
+
+  const inscriptionsRecentes = useMemo(
+    () =>
+      entreprises
+        .filter((e) => e.created_at && Date.now() - new Date(e.created_at).getTime() < MS_7J)
+        .sort((a, b) => (b.created_at || "").localeCompare(a.created_at || "")),
+    [entreprises]
+  );
+
+  const abonnementsARenouveler = useMemo(
+    () =>
+      entreprises
+        .map((e) => ({ entreprise: e, info: calculerStatutAbonnement(e) }))
+        .filter((x) => x.info.statut === "alerte" || x.info.statut === "expire")
+        .sort((a, b) => (a.info.joursRestants ?? 0) - (b.info.joursRestants ?? 0)),
+    [entreprises]
+  );
+
+  const nombreNotifications = inscriptionsRecentes.length + abonnementsARenouveler.length;
 
   if (!chargementAuth && !estSuperAdmin) {
     return <Navigate to="/" replace />;
@@ -72,7 +85,7 @@ export function AdminPage() {
         .font-body { font-family: 'Inter', sans-serif; }
       `}</style>
 
-      <header className="bg-stone-900 text-stone-50 px-5 py-4">
+      <header className="bg-stone-900 text-stone-50 px-5 py-4 relative">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="font-display text-2xl font-bold">Administration — Abonnements</h1>
@@ -81,13 +94,81 @@ export function AdminPage() {
               {entreprises.length > 1 ? "s" : ""}
             </p>
           </div>
-          {nombreRecentes > 0 && (
-            <span className="flex items-center gap-1.5 text-xs font-medium bg-amber-500 text-stone-900 px-2.5 py-1.5 rounded-full shrink-0">
-              <Sparkles size={13} />
-              {nombreRecentes} nouvelle{nombreRecentes > 1 ? "s" : ""} (48h)
-            </span>
-          )}
+          <button
+            onClick={() => setClocheOuverte((v) => !v)}
+            className="relative flex items-center justify-center w-10 h-10 rounded-full bg-stone-800 shrink-0"
+          >
+            <Bell size={18} />
+            {nombreNotifications > 0 && (
+              <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-amber-500 text-stone-900 text-[10px] font-bold">
+                {nombreNotifications}
+              </span>
+            )}
+          </button>
         </div>
+
+        {clocheOuverte && (
+          <>
+            <div className="fixed inset-0 z-30" onClick={() => setClocheOuverte(false)} />
+            <div className="absolute right-5 top-16 z-40 w-80 max-h-[70vh] overflow-y-auto bg-white text-stone-900 rounded-xl shadow-xl border border-stone-200">
+              <div className="p-3 border-b border-stone-100">
+                <p className="text-xs font-semibold uppercase tracking-wide text-stone-400">
+                  Nouvelles inscriptions (7 derniers jours)
+                </p>
+              </div>
+              {inscriptionsRecentes.length === 0 && (
+                <p className="p-3 text-xs text-stone-400">Aucune inscription récente.</p>
+              )}
+              {inscriptionsRecentes.map((e) => (
+                <button
+                  key={e.id}
+                  onClick={() => {
+                    setEntrepriseEnEdition(e);
+                    setClocheOuverte(false);
+                  }}
+                  className="w-full text-left px-3 py-2.5 border-b border-stone-50 hover:bg-stone-50"
+                >
+                  <p className="text-sm font-medium truncate">{e.nom}</p>
+                  <p className="text-xs text-stone-400">
+                    {libelleSecteurActivite(e.secteur_activite, e.secteur_activite_autre)}
+                    {e.created_at && ` · ${new Date(e.created_at).toLocaleDateString("fr-FR")}`}
+                  </p>
+                </button>
+              ))}
+
+              <div className="p-3 border-b border-t border-stone-100">
+                <p className="text-xs font-semibold uppercase tracking-wide text-stone-400">
+                  Abonnements à renouveler
+                </p>
+              </div>
+              {abonnementsARenouveler.length === 0 && (
+                <p className="p-3 text-xs text-stone-400">Aucun abonnement en alerte.</p>
+              )}
+              {abonnementsARenouveler.map(({ entreprise: e, info }) => (
+                <button
+                  key={e.id}
+                  onClick={() => {
+                    setEntrepriseEnEdition(e);
+                    setClocheOuverte(false);
+                  }}
+                  className="w-full text-left px-3 py-2.5 border-b border-stone-50 hover:bg-stone-50 flex items-center justify-between gap-2"
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate">{e.nom}</p>
+                    <p className="text-xs text-stone-400">{e.plan_abonnement}</p>
+                  </div>
+                  <span
+                    className={`text-xs font-medium px-2 py-1 rounded shrink-0 ${STYLES_STATUT[info.statut].bg} ${STYLES_STATUT[info.statut].texte}`}
+                  >
+                    {info.joursRestants !== null && info.joursRestants >= 0
+                      ? `${info.joursRestants}j`
+                      : `expiré ${Math.abs(info.joursRestants ?? 0)}j`}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </>
+        )}
       </header>
 
       <main className="max-w-3xl mx-auto px-4 py-5">

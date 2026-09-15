@@ -108,6 +108,9 @@ export interface Article {
   prix_consigne_casier: number | null;
   prix_consigne_bouteille: number | null;
   capacite_casier: number | null; // nb de bouteilles par casier plein
+  // Date de péremption (alimentation générale principalement) : permet
+  // de repérer les produits à évacuer avant expiration.
+  date_expiration: string | null;
 }
 
 export interface Client {

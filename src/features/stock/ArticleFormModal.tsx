@@ -28,9 +28,12 @@ export function ArticleFormModal({ onFerme, onCree, onModifie, onSupprime, artic
   const [seuilDemiGros, setSeuilDemiGros] = useState(String(articleAModifier?.seuil_demi_gros ?? ""));
   const [prixGros, setPrixGros] = useState(String(articleAModifier?.prix_gros ?? ""));
   const [seuilGros, setSeuilGros] = useState(String(articleAModifier?.seuil_gros ?? ""));
+  const [dateExpiration, setDateExpiration] = useState(articleAModifier?.date_expiration || "");
   const [enCours, setEnCours] = useState(false);
   const [suppressionEnCours, setSuppressionEnCours] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
+
+  const suitPeremption = entreprise?.secteur_activite === "alimentation_generale";
 
   async function gererSoumission(e: FormEvent) {
     e.preventDefault();
@@ -49,6 +52,7 @@ export function ArticleFormModal({ onFerme, onCree, onModifie, onSupprime, artic
           seuil_demi_gros: seuilDemiGros ? Number(seuilDemiGros) : null,
           prix_gros: prixGros ? Number(prixGros) : null,
           seuil_gros: seuilGros ? Number(seuilGros) : null,
+          date_expiration: dateExpiration || null,
         };
         await modifierArticle(articleAModifier.id, champs);
         onModifie?.(articleAModifier.id, champs);
@@ -66,6 +70,7 @@ export function ArticleFormModal({ onFerme, onCree, onModifie, onSupprime, artic
             seuil_demi_gros: seuilDemiGros ? Number(seuilDemiGros) : null,
             prix_gros: prixGros ? Number(prixGros) : null,
             seuil_gros: seuilGros ? Number(seuilGros) : null,
+            date_expiration: dateExpiration || null,
           },
           entreprise.id
         );
@@ -169,6 +174,22 @@ export function ArticleFormModal({ onFerme, onCree, onModifie, onSupprime, artic
             />
           </div>
         </div>
+
+        {suitPeremption && (
+          <div>
+            <label className="text-xs font-medium text-stone-500">Date d'expiration (optionnel)</label>
+            <input
+              type="date"
+              value={dateExpiration}
+              onChange={(e) => setDateExpiration(e.target.value)}
+              className="w-full mt-1 border border-stone-300 rounded-lg py-2 px-3 text-sm"
+            />
+            <p className="text-[11px] text-stone-400 mt-1">
+              Ce produit apparaîtra sur le tableau de bord dès qu'il approche de sa
+              péremption, pour t'aider à l'évacuer du stock à temps.
+            </p>
+          </div>
+        )}
 
         <div className="border border-stone-200 rounded-lg overflow-hidden">
           <button

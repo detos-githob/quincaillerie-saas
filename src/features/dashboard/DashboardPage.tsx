@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   Package,
   AlertTriangle,
@@ -8,12 +9,16 @@ import {
   CircleCheck,
   Handshake,
   Beer,
+  Bell,
+  CalendarClock,
+  PackageX,
 } from "lucide-react";
 import { BarChart, Bar, XAxis, ResponsiveContainer, Tooltip, Cell } from "recharts";
 import { supabase } from "../../lib/supabaseClient";
 import { useAuth } from "../../hooks/useAuth";
 import { listerClients, clientsAvecCreanceEnRetard } from "../../services/clientsService";
-import type { Alerte, Client } from "../../types";
+import { calculerStatutAbonnement, STYLES_STATUT_ABONNEMENT } from "../../lib/abonnement";
+import type { Alerte, Article, Client } from "../../types";
 
 function formatFCFA(montant: number): string {
   return Math.round(montant).toLocaleString("fr-FR") + " F";
@@ -40,6 +45,8 @@ export function DashboardPage() {
   const [topArticles, setTopArticles] = useState<{ nom: string; quantite: number; montant: number }[]>([]);
   const [detteFournisseurs, setDetteFournisseurs] = useState(0);
   const [commandesFournisseurEnAttente, setCommandesFournisseurEnAttente] = useState(0);
+  const [produitsAEvacuer, setProduitsAEvacuer] = useState<Article[]>([]);
+  const [produitsExpires, setProduitsExpires] = useState<Article[]>([]);
 
   useEffect(() => {
     if (!entreprise) return;
@@ -154,6 +161,35 @@ export function DashboardPage() {
         setCommandesFournisseurEnAttente(commandesEnAttente || 0);
       }
 
+      // Widget sectoriel : produits proches de péremption / déjà expirés,
+      // uniquement pour les entreprises du secteur alimentation générale.
+      if (entreprise!.secteur_activite === "alimentation_generale") {
+        const aujourdhuiStr = new Date().toISOString().slice(0, 10);
+        const dansTroisMois = new Date();
+        dansTroisMois.setMonth(dansTroisMois.getMonth() + 3);
+        const dansTroisMoisStr = dansTroisMois.toISOString().slice(0, 10);
+
+        const [{ data: aEvacuer }, { data: expires }] = await Promise.all([
+          supabase
+            .from("articles")
+            .select("*")
+            .eq("entreprise_id", entreprise!.id)
+            .eq("actif", true)
+            .gte("date_expiration", aujourdhuiStr)
+            .lte("date_expiration", dansTroisMoisStr)
+            .order("date_expiration", { ascending: true }),
+          supabase
+            .from("articles")
+            .select("*")
+            .eq("entreprise_id", entreprise!.id)
+            .eq("actif", true)
+            .lt("date_expiration", aujourdhuiStr)
+            .order("date_expiration", { ascending: true }),
+        ]);
+        setProduitsAEvacuer((aEvacuer || []) as Article[]);
+        setProduitsExpires((expires || []) as Article[]);
+      }
+
       setChargement(false);
     }
 
@@ -172,12 +208,71 @@ export function DashboardPage() {
   const nombreCritiques = alertesStock.filter((a) => a.niveau === "critique").length;
   const statutSante = nombreCritiques > 0 ? "attention" : "bon";
 
+  const [clocheOuverte, setClocheOuverte] = useState(false);
+  const infoAbonnement = entreprise ? calculerStatutAbonnement(entreprise) : null;
+  const abonnementAAlerter = infoAbonnement?.statut === "alerte" || infoAbonnement?.statut === "expire";
+
   if (chargement) {
     return <div className="p-6 text-stone-400 text-sm">Chargement du tableau de bord...</div>;
   }
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-5 space-y-5">
+      {/* En-tête avec cloche de notification abonnement */}
+      <div className="flex items-center justify-between">
+        <h1 className="font-display text-2xl font-bold text-stone-900">Tableau de bord</h1>
+        {infoAbonnement && (
+          <div className="relative">
+            <button
+              onClick={() => setClocheOuverte((v) => !v)}
+              className="relative flex items-center justify-center w-10 h-10 rounded-full bg-white border border-stone-200"
+            >
+              <Bell size={18} className="text-stone-500" />
+              {abonnementAAlerter && (
+                <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-red-500 border-2 border-white" />
+              )}
+            </button>
+            {clocheOuverte && (
+              <>
+                <div className="fixed inset-0 z-30" onClick={() => setClocheOuverte(false)} />
+                <div className="absolute right-0 top-12 z-40 w-72 bg-white rounded-xl shadow-xl border border-stone-200 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-stone-400 mb-2">
+                    Mon abonnement
+                  </p>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm text-stone-600 capitalize">{entreprise?.plan_abonnement}</span>
+                    <span
+                      className={`text-xs font-medium px-2 py-1 rounded ${STYLES_STATUT_ABONNEMENT[infoAbonnement.statut].bg} ${STYLES_STATUT_ABONNEMENT[infoAbonnement.statut].texte}`}
+                    >
+                      {STYLES_STATUT_ABONNEMENT[infoAbonnement.statut].label}
+                    </span>
+                  </div>
+                  <p className="text-sm text-stone-500 mb-3">
+                    {infoAbonnement.joursRestants === null &&
+                      "Aucune date d'expiration — abonnement illimité."}
+                    {infoAbonnement.joursRestants !== null && infoAbonnement.joursRestants >= 0 &&
+                      `${infoAbonnement.joursRestants} jour${infoAbonnement.joursRestants > 1 ? "s" : ""} restant${infoAbonnement.joursRestants > 1 ? "s" : ""} avant expiration.`}
+                    {infoAbonnement.joursRestants !== null && infoAbonnement.joursRestants < 0 &&
+                      `Expiré depuis ${Math.abs(infoAbonnement.joursRestants)} jour${Math.abs(infoAbonnement.joursRestants) > 1 ? "s" : ""}.`}
+                  </p>
+                  {utilisateur?.role === "gerant" ? (
+                    <Link
+                      to="/mon-abonnement"
+                      onClick={() => setClocheOuverte(false)}
+                      className="block text-center bg-stone-900 text-white text-sm font-medium py-2 rounded-lg"
+                    >
+                      Gérer mon abonnement
+                    </Link>
+                  ) : (
+                    <p className="text-xs text-stone-400">Contacte le gérant pour renouveler.</p>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Bandeau santé */}
       <div
         className={`rounded-2xl border-2 p-5 flex items-start gap-4 ${
@@ -276,6 +371,62 @@ export function DashboardPage() {
                 {totalCasiersConsignes}
               </p>
             </div>
+          </div>
+        </div>
+      )}
+
+      {entreprise?.secteur_activite === "alimentation_generale" && (
+        <div className="space-y-3">
+          <div className="bg-white border border-amber-200 rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <CalendarClock size={16} className="text-amber-600" />
+              <p className="font-display text-lg font-bold text-stone-900">
+                À évacuer sous 3 mois ({produitsAEvacuer.length})
+              </p>
+            </div>
+            {produitsAEvacuer.length === 0 ? (
+              <p className="text-xs text-stone-400">Aucun produit proche de la péremption.</p>
+            ) : (
+              <div className="divide-y divide-stone-100">
+                {produitsAEvacuer.map((a) => (
+                  <div key={a.id} className="flex items-center justify-between py-2">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-stone-900 truncate">{a.designation}</p>
+                      <p className="text-xs text-stone-400">Stock : {a.stock_actuel} {a.unite}</p>
+                    </div>
+                    <span className="text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 shrink-0">
+                      {a.date_expiration && new Date(a.date_expiration).toLocaleDateString("fr-FR")}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="bg-white border border-red-200 rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <PackageX size={16} className="text-red-600" />
+              <p className="font-display text-lg font-bold text-stone-900">
+                Produits expirés ({produitsExpires.length})
+              </p>
+            </div>
+            {produitsExpires.length === 0 ? (
+              <p className="text-xs text-stone-400">Aucun produit expiré dans le stock.</p>
+            ) : (
+              <div className="divide-y divide-stone-100">
+                {produitsExpires.map((a) => (
+                  <div key={a.id} className="flex items-center justify-between py-2">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-stone-900 truncate">{a.designation}</p>
+                      <p className="text-xs text-stone-400">Stock : {a.stock_actuel} {a.unite}</p>
+                    </div>
+                    <span className="text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded px-2 py-1 shrink-0">
+                      {a.date_expiration && new Date(a.date_expiration).toLocaleDateString("fr-FR")}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}

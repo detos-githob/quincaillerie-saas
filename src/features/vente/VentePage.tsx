@@ -55,10 +55,21 @@ export function VentePage() {
     });
   }, [articles, categorieChoisie, recherche]);
 
-  const typeClientActuel: TypeClient = useMemo(() => {
-    if (!clientId) return "detail";
-    return clients.find((c) => c.id === clientId)?.type_client || "detail";
+  // Type de vente : se cale automatiquement sur le type du client
+  // sélectionné, mais reste modifiable manuellement pour chaque vente
+  // (ex : un client "détail" habituel qui achète exceptionnellement en
+  // demi-gros aujourd'hui).
+  const [typeVente, setTypeVente] = useState<TypeClient>("detail");
+
+  useEffect(() => {
+    if (!clientId) {
+      setTypeVente("detail");
+      return;
+    }
+    setTypeVente(clients.find((c) => c.id === clientId)?.type_client || "detail");
   }, [clientId, clients]);
+
+  const typeClientActuel = typeVente;
 
   function prixLigne(ligne: LigneCourante): number {
     return prixUnitaireApplicable(ligne.article, ligne.quantite, typeClientActuel);
@@ -343,6 +354,19 @@ export function VentePage() {
                       {c.type_client !== "detail" ? ` (${LABELS_TYPE_CLIENT[c.type_client]})` : ""}
                     </option>
                   ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-xs font-medium text-stone-500">Type de vente</label>
+                <select
+                  value={typeVente}
+                  onChange={(e) => setTypeVente(e.target.value as TypeClient)}
+                  className="w-full mt-1 border border-stone-300 rounded-lg py-2 px-3 text-sm bg-white"
+                >
+                  <option value="detail">Détail</option>
+                  <option value="demi_gros">Semi-gros</option>
+                  <option value="gros">Gros</option>
                 </select>
                 {typeClientActuel !== "detail" && (
                   <p className="text-[11px] text-amber-600 mt-1 font-medium">

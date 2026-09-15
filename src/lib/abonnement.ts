@@ -7,6 +7,16 @@ export interface InfoAbonnement {
   joursRestants: number | null;
 }
 
+export const STYLES_STATUT_ABONNEMENT: Record<
+  StatutAbonnement,
+  { bg: string; texte: string; label: string }
+> = {
+  illimite: { bg: "bg-slate-100", texte: "text-slate-600", label: "Illimité" },
+  actif: { bg: "bg-emerald-100", texte: "text-emerald-700", label: "Actif" },
+  alerte: { bg: "bg-amber-100", texte: "text-amber-800", label: "Bientôt expiré" },
+  expire: { bg: "bg-red-100", texte: "text-red-700", label: "Expiré" },
+};
+
 /**
  * Détermine le statut d'abonnement d'une entreprise et le nombre de
  * jours restants avant expiration.

@@ -48,6 +48,10 @@ suite.
    - `migration_notification_inscription.sql` — notifie l'admin par email
      à chaque nouvelle inscription (nécessite aussi de déployer la
      fonction `notifier-nouvelle-inscription`, voir plus bas)
+   - `migration_essai_gratuit.sql` — les nouvelles inscriptions démarrent
+     sur un essai gratuit de 7 jours au lieu d'un abonnement illimité
+   - `migration_date_expiration.sql` — date d'expiration sur les articles
+     (alimentation générale)
 
 ## 2. Configurer le projet local
 
@@ -185,6 +189,11 @@ Puis, comme pour ton portfolio :
   avec compteur) et les regroupe par secteur dans la liste
 - Un badge **Nouveau** est affiché sur les entreprises inscrites il y a
   moins de 48h, avec un compteur global dans l'en-tête
+- Icône **cloche** dans l'en-tête de `/admin` : ouvre un panneau listant
+  les inscriptions des 7 derniers jours et les abonnements à renouveler
+  (statut "Bientôt expiré" ou "Expiré"), avec un badge du nombre total.
+  Cliquer sur une entrée ouvre directement sa fiche pour modifier son
+  abonnement
 - À chaque inscription, un trigger PostgreSQL (`migration_notification_
   inscription.sql`) appelle la fonction Edge `notifier-nouvelle-
   inscription`, qui t'envoie un email via Brevo — indépendamment de
@@ -196,6 +205,42 @@ Puis, comme pour ton portfolio :
   Elle réutilise les secrets déjà en place pour `verifier-abonnements-
   expiration` (`BREVO_API_KEY`, `BREVO_SENDER_EMAIL`, `ADMIN_EMAIL`,
   `CRON_SECRET`) — rien à reconfigurer si ceux-ci sont déjà définis.
+- Chaque nouvelle inscription démarre sur un **essai gratuit de 7 jours**
+  (`migration_essai_gratuit.sql`) plutôt que sur un abonnement illimité —
+  le compteur de jours restants apparaît dès la création, et l'entreprise
+  est automatiquement redirigée vers `/abonnement-expire` une fois
+  l'essai écoulé si elle n'est pas passée sur un forfait payant
+
+### Cloche de notification côté entreprise
+
+- Chaque entreprise voit, sur son tableau de bord, une icône **cloche**
+  rappelant l'état de son propre abonnement (forfait, jours restants ou
+  expiré depuis X jours) — avec un point rouge dès que l'abonnement est
+  en alerte ou expiré
+- Un bouton "Gérer mon abonnement" y renvoie directement vers
+  `/mon-abonnement` (uniquement pour le gérant — les autres rôles voient
+  une invitation à le contacter)
+
+### Type de vente (détail / semi-gros / gros)
+
+- Sur `VentePage`, un menu déroulant "Type de vente" se cale
+  automatiquement sur le type du client sélectionné (détail, demi-gros,
+  gros), mais reste modifiable manuellement pour chaque vente — utile
+  pour un client détail qui achète exceptionnellement en gros
+- Le tarif appliqué à chaque article de la vente suit ce choix (via la
+  tarification gros/demi-gros déjà configurée sur les articles)
+
+### Alimentation générale — suivi de péremption
+
+- Champ **Date d'expiration** dans le formulaire d'ajout d'article,
+  visible pour les entreprises du secteur "Alimentation générale"
+  (colonne `articles.date_expiration`, optionnelle et sans effet sur les
+  autres secteurs)
+- Sur le tableau de bord de ces entreprises, deux cartes dédiées :
+  - **À évacuer sous 3 mois** — produits dont la date d'expiration
+    approche, à écouler en priorité
+  - **Produits expirés** — produits dont la date d'expiration est déjà
+    dépassée, à retirer du stock
 
 ### Confirmation d'email → retour direct vers l'app
 

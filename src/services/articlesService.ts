@@ -27,6 +27,7 @@ export async function creerArticle(
     | "prix_consigne_casier"
     | "prix_consigne_bouteille"
     | "capacite_casier"
+    | "date_expiration"
   > &
     Partial<
       Pick<
@@ -39,6 +40,7 @@ export async function creerArticle(
         | "prix_consigne_casier"
         | "prix_consigne_bouteille"
         | "capacite_casier"
+        | "date_expiration"
       >
     >,
   entrepriseId: string
@@ -58,6 +60,7 @@ export async function creerArticle(
       prix_consigne_casier: article.prix_consigne_casier ?? null,
       prix_consigne_bouteille: article.prix_consigne_bouteille ?? null,
       capacite_casier: article.capacite_casier ?? null,
+      date_expiration: article.date_expiration ?? null,
     })
     .select()
     .single();
