@@ -17,6 +17,9 @@ import { FournisseursPage } from "./features/fournisseurs/FournisseursPage";
 import { FournisseurDetailPage } from "./features/fournisseurs/FournisseurDetailPage";
 import { LivraisonsPage } from "./features/livraisons/LivraisonsPage";
 import { DepotBoissonsPage } from "./features/depot-boissons/DepotBoissonsPage";
+import { DepensesPage } from "./features/personnel/DepensesPage";
+import { TontinesPage } from "./features/tontine/TontinesPage";
+import { TontineDetailPage } from "./features/tontine/TontineDetailPage";
 import { EquipePage } from "./features/equipe/EquipePage";
 import { AdminPage } from "./features/admin/AdminPage";
 import { MonAbonnementPage } from "./features/abonnement/MonAbonnementPage";
@@ -48,6 +51,9 @@ export default function App() {
             <Route path="/fournisseurs/:id" element={<FournisseurDetailPage />} />
             <Route path="/livraisons" element={<LivraisonsPage />} />
             <Route path="/depot-boissons" element={<DepotBoissonsPage />} />
+            <Route path="/depenses" element={<DepensesPage />} />
+            <Route path="/tontines" element={<TontinesPage />} />
+            <Route path="/tontines/:id" element={<TontineDetailPage />} />
             <Route path="/clients" element={<ClientsPage />} />
             <Route path="/factures" element={<FacturesPage />} />
             <Route path="/equipe" element={<EquipePage />} />

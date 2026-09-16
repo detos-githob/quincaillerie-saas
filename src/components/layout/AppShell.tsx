@@ -16,6 +16,8 @@ import {
   Handshake,
   Truck,
   Beer,
+  Wallet,
+  PiggyBank,
   MoreHorizontal,
   X,
 } from "lucide-react";
@@ -54,7 +56,9 @@ export function AppShell() {
       visible: estGerantOuComptable && secteur === "depot_boissons",
     },
     { to: "/clients", label: "Clients", icone: Users, visible: true },
+    { to: "/tontines", label: "Tontines", icone: PiggyBank, visible: true },
     { to: "/factures", label: "Factures", icone: FileText, visible: true },
+    { to: "/depenses", label: "Personnel & Dépenses", icone: Wallet, visible: estGerantOuComptable },
     { to: "/equipe", label: "Équipe", icone: UserCog, visible: role === "gerant" },
     { to: "/mon-abonnement", label: "Abonnement", icone: CreditCard, visible: role === "gerant" },
   ].filter((l) => l.visible);

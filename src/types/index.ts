@@ -269,3 +269,120 @@ export interface Casse {
   created_at: string;
   article?: { designation: string };
 }
+
+// =====================================================================
+// PERSONNEL (PAIEMENTS + QUITTANCE) & DEPENSES CONNEXES
+// =====================================================================
+
+export type MotifPaiementPersonnel = "salaire" | "prime" | "avance" | "autre";
+export type ModePaiementSortie = "especes" | "mobile_money" | "virement";
+export type CategorieDepense =
+  | "loyer"
+  | "electricite"
+  | "eau"
+  | "transport"
+  | "fournitures"
+  | "entretien"
+  | "communication"
+  | "autre";
+
+export interface Employe {
+  id: string;
+  entreprise_id: string;
+  nom: string;
+  poste: string | null;
+  telephone: string | null;
+  salaire_reference: number | null;
+  actif: boolean;
+  created_at: string;
+}
+
+export interface PaiementPersonnel {
+  id: string;
+  entreprise_id: string;
+  employe_id: string;
+  numero_quittance: string;
+  montant: number;
+  periode: string | null;
+  motif: MotifPaiementPersonnel;
+  mode_paiement: ModePaiementSortie;
+  utilisateur_id: string | null;
+  created_at: string;
+  employe?: { nom: string; poste: string | null };
+}
+
+export interface Depense {
+  id: string;
+  entreprise_id: string;
+  categorie: CategorieDepense;
+  description: string | null;
+  montant: number;
+  mode_paiement: ModePaiementSortie;
+  utilisateur_id: string | null;
+  created_at: string;
+}
+
+export const LABELS_CATEGORIE_DEPENSE: Record<CategorieDepense, string> = {
+  loyer: "Loyer",
+  electricite: "Électricité",
+  eau: "Eau",
+  transport: "Transport",
+  fournitures: "Fournitures",
+  entretien: "Entretien",
+  communication: "Communication",
+  autre: "Autre",
+};
+
+export const LABELS_MOTIF_PAIEMENT: Record<MotifPaiementPersonnel, string> = {
+  salaire: "Salaire",
+  prime: "Prime",
+  avance: "Avance",
+  autre: "Autre",
+};
+
+// =====================================================================
+// TONTINE CLIENT
+// =====================================================================
+
+export type StatutTontine = "en_cours" | "atteint" | "cloturee";
+
+export interface Tontine {
+  id: string;
+  entreprise_id: string;
+  client_id: string;
+  plafond: number;
+  montant_cumule: number;
+  statut: StatutTontine;
+  date_debut: string;
+  date_atteinte: string | null;
+  utilisateur_id: string | null;
+  created_at: string;
+  client?: { nom: string; telephone: string | null };
+}
+
+export interface CotisationTontine {
+  id: string;
+  tontine_id: string;
+  entreprise_id: string;
+  numero_recu: string;
+  montant: number;
+  mode_paiement: "especes" | "mobile_money";
+  utilisateur_id: string | null;
+  created_at: string;
+}
+
+export interface LignePanierTontine {
+  id: string;
+  tontine_id: string;
+  entreprise_id: string;
+  article_id: string;
+  quantite: number;
+  created_at: string;
+  article?: { designation: string; unite: string; prix_vente: number };
+}
+
+export const LABELS_STATUT_TONTINE: Record<StatutTontine, { label: string; bg: string; texte: string }> = {
+  en_cours: { label: "En cours", bg: "bg-amber-50", texte: "text-amber-700" },
+  atteint: { label: "Plafond atteint", bg: "bg-emerald-50", texte: "text-emerald-700" },
+  cloturee: { label: "Clôturée", bg: "bg-stone-100", texte: "text-stone-500" },
+};

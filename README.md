@@ -52,6 +52,10 @@ suite.
      sur un essai gratuit de 7 jours au lieu d'un abonnement illimité
    - `migration_date_expiration.sql` — date d'expiration sur les articles
      (alimentation générale)
+   - `migration_personnel_depenses.sql` — paiements personnel (quittance)
+     et dépenses connexes, universel à tous les secteurs
+   - `migration_tontine.sql` — tontines clients (souscription, cotisations,
+     panier privé), universel à tous les secteurs
 
 ## 2. Configurer le projet local
 
@@ -241,6 +245,43 @@ Puis, comme pour ton portfolio :
     approche, à écouler en priorité
   - **Produits expirés** — produits dont la date d'expiration est déjà
     dépassée, à retirer du stock
+
+### Personnel (paiements + quittance) & Dépenses connexes
+
+Module universel, disponible pour tous les secteurs d'activité —
+visible dans la nav sous "Personnel & Dépenses" (gérant/comptable) :
+
+- **Personnel** : fiche employé (nom, poste, téléphone, salaire de
+  référence) distincte des comptes de connexion `utilisateurs` — un
+  livreur ou un agent d'entretien n'a pas besoin d'un compte Akweo pour
+  être payé. Chaque paiement (salaire, prime, avance, autre) génère une
+  **quittance PDF numérotée** (`Q-YYYYMMDD-0001`), téléchargée
+  automatiquement à l'enregistrement
+- **Dépenses** : petites dépenses de fonctionnement classées par
+  catégorie (loyer, électricité, eau, transport, fournitures,
+  entretien, communication, autre)
+- Le tableau de bord affiche, pour **tous les secteurs**, une carte
+  "Sorties d'argent ce mois-ci" cumulant personnel + dépenses — la
+  vision globale demandée, au-delà des seuls achats fournisseurs
+
+### Tontine client
+
+Module universel lui aussi, visible dans la nav sous "Tontines" (tous
+rôles, comme Vente/Clients) :
+
+- Un client souscrit à une tontine avec un **plafond libre** (le
+  montant qu'il vise)
+- Chaque versement (cotisation) génère un **reçu PDF numéroté**
+  (`TR-YYYYMMDD-0001`) — fonction RPC atomique `enregistrer_cotisation_
+  tontine`, qui met aussi à jour le cumul et bascule automatiquement le
+  statut sur "Plafond atteint" dès que le cumul dépasse le plafond
+- Le client peut, pendant ce temps, constituer un **panier privé**
+  (articles + quantités) rattaché à sa tontine
+- Une fois le plafond atteint, le bouton "Récupérer les produits"
+  déclenche la fonction RPC atomique `recuperer_produits_tontine` :
+  elle sort les articles du panier du stock, vide le panier et clôture
+  la tontine — avec un garde-fou qui refuse la récupération si la
+  valeur du panier dépasse le montant réellement épargné
 
 ### Confirmation d'email → retour direct vers l'app
 

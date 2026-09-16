@@ -12,11 +12,13 @@ import {
   Bell,
   CalendarClock,
   PackageX,
+  Wallet,
 } from "lucide-react";
 import { BarChart, Bar, XAxis, ResponsiveContainer, Tooltip, Cell } from "recharts";
 import { supabase } from "../../lib/supabaseClient";
 import { useAuth } from "../../hooks/useAuth";
 import { listerClients, clientsAvecCreanceEnRetard } from "../../services/clientsService";
+import { totalSortiesArgentDuMois } from "../../services/depensesService";
 import { calculerStatutAbonnement, STYLES_STATUT_ABONNEMENT } from "../../lib/abonnement";
 import type { Alerte, Article, Client } from "../../types";
 
@@ -47,6 +49,7 @@ export function DashboardPage() {
   const [commandesFournisseurEnAttente, setCommandesFournisseurEnAttente] = useState(0);
   const [produitsAEvacuer, setProduitsAEvacuer] = useState<Article[]>([]);
   const [produitsExpires, setProduitsExpires] = useState<Article[]>([]);
+  const [sortiesArgentMois, setSortiesArgentMois] = useState({ totalDepenses: 0, totalPersonnel: 0 });
 
   useEffect(() => {
     if (!entreprise) return;
@@ -190,6 +193,10 @@ export function DashboardPage() {
         setProduitsExpires((expires || []) as Article[]);
       }
 
+      // Vision globale (tous secteurs) : dépenses + paiements personnel
+      // du mois en cours.
+      setSortiesArgentMois(await totalSortiesArgentDuMois(entreprise!.id));
+
       setChargement(false);
     }
 
@@ -325,6 +332,28 @@ export function DashboardPage() {
         <div className="bg-white border border-stone-200 rounded-xl p-4">
           <p className="text-xs text-stone-500">Créances en cours</p>
           <p className="font-display text-2xl font-bold text-stone-900 mt-1">{formatFCFA(totalCreances)}</p>
+        </div>
+      </div>
+
+      {/* Vision globale (tous secteurs) : dépenses + personnel du mois */}
+      <div className="bg-white border border-stone-200 rounded-xl p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <Wallet size={16} className="text-slate-500" />
+          <p className="font-display text-lg font-bold text-stone-900">Sorties d'argent ce mois-ci</p>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <p className="text-xs text-stone-500">Personnel (salaires, primes...)</p>
+            <p className="font-display text-xl font-bold text-stone-900 mt-0.5">
+              {formatFCFA(sortiesArgentMois.totalPersonnel)}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs text-stone-500">Dépenses connexes</p>
+            <p className="font-display text-xl font-bold text-stone-900 mt-0.5">
+              {formatFCFA(sortiesArgentMois.totalDepenses)}
+            </p>
+          </div>
         </div>
       </div>
 
