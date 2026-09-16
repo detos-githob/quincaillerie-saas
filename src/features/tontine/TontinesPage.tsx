@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, X, PiggyBank } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
-import { listerClients } from "../../services/clientsService";
+import { listerClients, creerClient } from "../../services/clientsService";
 import { listerTontines, creerTontine } from "../../services/tontineService";
 import { LABELS_STATUT_TONTINE } from "../../types";
 import type { Client, Tontine } from "../../types";
@@ -120,6 +120,8 @@ function ModaleNouvelleTontine({
 }) {
   const [clients, setClients] = useState<Client[]>([]);
   const [clientId, setClientId] = useState("");
+  const [nouveauClientNom, setNouveauClientNom] = useState("");
+  const [nouveauClientTelephone, setNouveauClientTelephone] = useState("");
   const [plafond, setPlafond] = useState("");
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -130,14 +132,28 @@ function ModaleNouvelleTontine({
 
   async function gererSoumission(e: FormEvent) {
     e.preventDefault();
-    if (!clientId) {
-      setErreur("Sélectionne un client.");
+    if (!clientId && !nouveauClientNom.trim()) {
+      setErreur("Sélectionne un client existant ou saisis le nom d'un nouveau client.");
       return;
     }
     setEnCours(true);
     setErreur(null);
     try {
-      const tontine = await creerTontine(entrepriseId, clientId, Number(plafond), utilisateurId);
+      let clientFinal = clientId;
+      if (nouveauClientNom.trim()) {
+        const nouveauClient = await creerClient(
+          {
+            nom: nouveauClientNom.trim(),
+            telephone: nouveauClientTelephone.trim() || null,
+            adresse: null,
+            ifu: null,
+            type_client: "detail",
+          },
+          entrepriseId
+        );
+        clientFinal = nouveauClient.id;
+      }
+      const tontine = await creerTontine(entrepriseId, clientFinal, Number(plafond), utilisateurId);
       onCreee(tontine);
       onFerme();
     } catch (e: any) {
@@ -162,7 +178,8 @@ function ModaleNouvelleTontine({
           <select
             value={clientId}
             onChange={(e) => setClientId(e.target.value)}
-            className="w-full mt-1 border border-stone-300 rounded-lg py-2 px-3 text-sm bg-white"
+            disabled={!!nouveauClientNom.trim()}
+            className="w-full mt-1 border border-stone-300 rounded-lg py-2 px-3 text-sm bg-white disabled:bg-stone-100 disabled:text-stone-400"
           >
             <option value="">Choisir un client...</option>
             {clients.map((c) => (
@@ -171,9 +188,29 @@ function ModaleNouvelleTontine({
               </option>
             ))}
           </select>
-          <p className="text-[11px] text-stone-400 mt-1">
-            Le client n'existe pas encore ? Crée-le d'abord depuis l'onglet Clients.
+
+          <p className="text-xs font-medium text-stone-500 mt-2.5">
+            Ou nouveau client (créé automatiquement)
           </p>
+          <div className="grid grid-cols-2 gap-2 mt-1">
+            <input
+              value={nouveauClientNom}
+              onChange={(e) => {
+                setNouveauClientNom(e.target.value);
+                if (e.target.value.trim()) setClientId("");
+              }}
+              disabled={!!clientId}
+              placeholder="Nom"
+              className="border border-stone-300 rounded-lg py-2 px-3 text-sm disabled:bg-stone-100 disabled:text-stone-400"
+            />
+            <input
+              value={nouveauClientTelephone}
+              onChange={(e) => setNouveauClientTelephone(e.target.value)}
+              disabled={!!clientId}
+              placeholder="Téléphone"
+              className="border border-stone-300 rounded-lg py-2 px-3 text-sm disabled:bg-stone-100 disabled:text-stone-400"
+            />
+          </div>
         </div>
         <div>
           <label className="text-xs font-medium text-stone-500">Plafond visé (F)</label>
