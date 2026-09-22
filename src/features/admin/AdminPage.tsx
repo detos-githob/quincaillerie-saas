@@ -331,9 +331,15 @@ function ModaleAbonnement({
           >
             <option value="essai">Essai</option>
             <option value="starter">Starter</option>
+            <option value="business">Business</option>
             <option value="pro">Pro</option>
           </select>
         </div>
+
+        <p className="text-[11px] text-stone-400 -mt-2">
+          Essai et Starter donnent un accès restreint (2 comptes max) ; Business et Pro
+          débloquent toutes les fonctionnalités (5 comptes max).
+        </p>
 
         <div>
           <label className="text-xs font-medium text-stone-500">Périodicité</label>

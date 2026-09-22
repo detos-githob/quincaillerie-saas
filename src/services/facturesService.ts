@@ -12,8 +12,12 @@ export interface FactureAvecDetails {
     numero_vente: string;
     montant_total: number;
     mode_paiement: string;
+    statut: string;
+    client_id: string | null;
     client: { nom: string; ifu: string | null; adresse: string | null } | null;
     lignes_vente: {
+      id: string;
+      article_id: string;
       quantite: number;
       prix_unitaire: number;
       remise: number;
@@ -30,10 +34,10 @@ export async function listerFacturesRecentes(limite = 50): Promise<FactureAvecDe
       `
       id, numero_facture, type_facture, statut_emecef, nim, date_emission,
       vente:ventes (
-        id, numero_vente, montant_total, mode_paiement,
+        id, numero_vente, montant_total, mode_paiement, statut, client_id,
         client:clients ( nom, ifu, adresse ),
         lignes_vente (
-          quantite, prix_unitaire, remise, montant_ligne,
+          id, article_id, quantite, prix_unitaire, remise, montant_ligne,
           article:articles ( designation, unite )
         )
       )

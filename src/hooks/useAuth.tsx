@@ -7,6 +7,8 @@ import {
 } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabaseClient";
+import { resoudrePermissions, type PermissionsResolues } from "../lib/permissions";
+import { chargerSurchargesUtilisateur } from "../services/permissionsService";
 import type { Entreprise, Utilisateur } from "../types";
 
 interface ContexteAuth {
@@ -14,6 +16,7 @@ interface ContexteAuth {
   utilisateur: Utilisateur | null;
   entreprise: Entreprise | null;
   estSuperAdmin: boolean;
+  permissions: PermissionsResolues;
   chargement: boolean;
   connexion: (email: string, motDePasse: string) => Promise<{ erreur: string | null }>;
   inscription: (
@@ -31,6 +34,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [utilisateur, setUtilisateur] = useState<Utilisateur | null>(null);
   const [entreprise, setEntreprise] = useState<Entreprise | null>(null);
   const [estSuperAdmin, setEstSuperAdmin] = useState(false);
+  const [permissions, setPermissions] = useState<PermissionsResolues>(resoudrePermissions(undefined));
   const [chargement, setChargement] = useState(true);
   const [chargementProfil, setChargementProfil] = useState(false);
 
@@ -49,18 +53,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .maybeSingle();
 
       if (profil) {
-        setUtilisateur(profil as Utilisateur);
-        const { data: entrepriseData } = await supabase
-          .from("entreprises")
-          .select("*")
-          .eq("id", (profil as Utilisateur).entreprise_id)
-          .single();
+        const profilType = profil as Utilisateur;
+        setUtilisateur(profilType);
+        const [{ data: entrepriseData }, surcharges] = await Promise.all([
+          supabase.from("entreprises").select("*").eq("id", profilType.entreprise_id).single(),
+          // Le gérant n'a jamais de surcharge applicable (toujours accès
+          // complet) : inutile d'interroger la table pour lui.
+          profilType.role === "gerant" ? Promise.resolve({}) : chargerSurchargesUtilisateur(profilType.id),
+        ]);
         setEntreprise(entrepriseData as Entreprise);
+        setPermissions(resoudrePermissions(profilType.role, surcharges));
       } else {
         // Compte authentifié mais pas encore lié à une entreprise
         // (ex: inscription interrompue avant l'étape finale).
         setUtilisateur(null);
         setEntreprise(null);
+        setPermissions(resoudrePermissions(undefined));
       }
     } finally {
       setChargementProfil(false);
@@ -138,6 +146,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         utilisateur,
         entreprise,
         estSuperAdmin,
+        permissions,
         chargement: chargement || chargementProfil,
         connexion,
         inscription,

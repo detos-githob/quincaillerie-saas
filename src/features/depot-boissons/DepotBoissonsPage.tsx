@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Beer, Undo2, PackageX, Settings2, X } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
+import { peutEcrire } from "../../lib/permissions";
 import { listerArticles, modifierArticle } from "../../services/articlesService";
 import { listerClients } from "../../services/clientsService";
 import {
@@ -54,7 +55,8 @@ export function DepotBoissonsPage() {
 // =====================================================================
 
 function OngletConsignes() {
-  const { entreprise, utilisateur } = useAuth();
+  const { entreprise, utilisateur, permissions } = useAuth();
+  const peutGerer = peutEcrire(permissions, "depot_boissons");
   const [clients, setClients] = useState<Client[]>([]);
   const [articles, setArticles] = useState<Article[]>([]);
   const [mouvements, setMouvements] = useState<MouvementConsigne[]>([]);
@@ -79,20 +81,22 @@ function OngletConsignes() {
 
   return (
     <div className="space-y-5">
-      <div className="flex gap-2">
-        <button
-          onClick={() => setModaleOuverte("sortie_consigne")}
-          className="flex-1 flex items-center justify-center gap-1.5 bg-stone-900 text-white text-sm font-medium py-2.5 rounded-lg"
-        >
-          <Beer size={15} /> Sortie de casiers
-        </button>
-        <button
-          onClick={() => setModaleOuverte("retour_consigne")}
-          className="flex-1 flex items-center justify-center gap-1.5 bg-white border border-stone-300 text-stone-700 text-sm font-medium py-2.5 rounded-lg"
-        >
-          <Undo2 size={15} /> Retour de vides
-        </button>
-      </div>
+      {peutGerer && (
+        <div className="flex gap-2">
+          <button
+            onClick={() => setModaleOuverte("sortie_consigne")}
+            className="flex-1 flex items-center justify-center gap-1.5 bg-stone-900 text-white text-sm font-medium py-2.5 rounded-lg"
+          >
+            <Beer size={15} /> Sortie de casiers
+          </button>
+          <button
+            onClick={() => setModaleOuverte("retour_consigne")}
+            className="flex-1 flex items-center justify-center gap-1.5 bg-white border border-stone-300 text-stone-700 text-sm font-medium py-2.5 rounded-lg"
+          >
+            <Undo2 size={15} /> Retour de vides
+          </button>
+        </div>
+      )}
 
       <div>
         <p className="font-display text-lg font-bold text-stone-900 mb-2">Clients avec consignes en cours</p>
@@ -310,7 +314,8 @@ function ModaleMouvementConsigne({
 // =====================================================================
 
 function OngletCasses() {
-  const { entreprise, utilisateur } = useAuth();
+  const { entreprise, utilisateur, permissions } = useAuth();
+  const peutGerer = peutEcrire(permissions, "depot_boissons");
   const [articles, setArticles] = useState<Article[]>([]);
   const [casses, setCasses] = useState<Casse[]>([]);
   const [chargement, setChargement] = useState(true);
@@ -336,12 +341,14 @@ function OngletCasses() {
           <p className="text-xs text-stone-400">Total des pertes enregistrées</p>
           <p className="font-display text-xl font-bold text-red-600">{formatFCFA(totalPertes)}</p>
         </div>
-        <button
-          onClick={() => setModaleOuverte(true)}
-          className="flex items-center gap-1.5 bg-stone-900 text-white text-sm font-medium px-3.5 py-2 rounded-lg"
-        >
-          <PackageX size={15} /> Déclarer une casse
-        </button>
+        {peutGerer && (
+          <button
+            onClick={() => setModaleOuverte(true)}
+            className="flex items-center gap-1.5 bg-stone-900 text-white text-sm font-medium px-3.5 py-2 rounded-lg"
+          >
+            <PackageX size={15} /> Déclarer une casse
+          </button>
+        )}
       </div>
 
       <div className="bg-white border border-stone-200 rounded-xl divide-y divide-stone-100">
@@ -494,6 +501,8 @@ function ModaleCasse({
 // =====================================================================
 
 function OngletArticlesConsignes() {
+  const { permissions } = useAuth();
+  const peutGerer = peutEcrire(permissions, "depot_boissons");
   const [articles, setArticles] = useState<Article[]>([]);
   const [chargement, setChargement] = useState(true);
   const [articleAConfigurer, setArticleAConfigurer] = useState<Article | null>(null);
@@ -523,12 +532,14 @@ function OngletArticlesConsignes() {
                   : "Consigne non configurée"}
               </p>
             </div>
-            <button
-              onClick={() => setArticleAConfigurer(a)}
-              className="flex items-center gap-1 text-xs font-medium text-stone-600 border border-stone-300 px-2.5 py-1.5 rounded-lg shrink-0"
-            >
-              <Settings2 size={13} /> Configurer
-            </button>
+            {peutGerer && (
+              <button
+                onClick={() => setArticleAConfigurer(a)}
+                className="flex items-center gap-1 text-xs font-medium text-stone-600 border border-stone-300 px-2.5 py-1.5 rounded-lg shrink-0"
+              >
+                <Settings2 size={13} /> Configurer
+              </button>
+            )}
           </div>
         ))}
         {articles.length === 0 && (

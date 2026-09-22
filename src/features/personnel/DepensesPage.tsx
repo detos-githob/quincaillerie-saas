@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Plus, X, Receipt, UserPlus, Wallet } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
+import { peutEcrire } from "../../lib/permissions";
 import {
   listerEmployes,
   creerEmploye,
@@ -64,7 +65,8 @@ export function DepensesPage() {
 // =====================================================================
 
 function OngletPersonnel() {
-  const { entreprise, utilisateur } = useAuth();
+  const { entreprise, utilisateur, permissions } = useAuth();
+  const peutGerer = peutEcrire(permissions, "depenses");
   const [employes, setEmployes] = useState<Employe[]>([]);
   const [paiements, setPaiements] = useState<PaiementPersonnel[]>([]);
   const [chargement, setChargement] = useState(true);
@@ -86,12 +88,14 @@ function OngletPersonnel() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <p className="font-display text-lg font-bold text-stone-900">Employés</p>
-        <button
-          onClick={() => setModaleEmployeOuverte(true)}
-          className="flex items-center gap-1.5 bg-stone-900 text-white text-sm font-medium px-3.5 py-2 rounded-lg"
-        >
-          <UserPlus size={15} /> Nouvel employé
-        </button>
+        {peutGerer && (
+          <button
+            onClick={() => setModaleEmployeOuverte(true)}
+            className="flex items-center gap-1.5 bg-stone-900 text-white text-sm font-medium px-3.5 py-2 rounded-lg"
+          >
+            <UserPlus size={15} /> Nouvel employé
+          </button>
+        )}
       </div>
 
       <div className="bg-white border border-stone-200 rounded-xl divide-y divide-stone-100">
@@ -101,12 +105,14 @@ function OngletPersonnel() {
               <p className="text-sm font-medium text-stone-900 truncate">{e.nom}</p>
               <p className="text-xs text-stone-400">{e.poste || "—"}</p>
             </div>
-            <button
-              onClick={() => setEmployePourPaiement(e)}
-              className="flex items-center gap-1 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1.5 rounded-lg shrink-0"
-            >
-              <Wallet size={13} /> Payer
-            </button>
+            {peutGerer && (
+              <button
+                onClick={() => setEmployePourPaiement(e)}
+                className="flex items-center gap-1 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1.5 rounded-lg shrink-0"
+              >
+                <Wallet size={13} /> Payer
+              </button>
+            )}
           </div>
         ))}
         {employes.length === 0 && (
@@ -368,7 +374,8 @@ function ModalePaiementPersonnel({
 // =====================================================================
 
 function OngletDepenses() {
-  const { entreprise, utilisateur } = useAuth();
+  const { entreprise, utilisateur, permissions } = useAuth();
+  const peutGerer = peutEcrire(permissions, "depenses");
   const [depenses, setDepenses] = useState<Depense[]>([]);
   const [chargement, setChargement] = useState(true);
   const [modaleOuverte, setModaleOuverte] = useState(false);
@@ -392,12 +399,14 @@ function OngletDepenses() {
           <p className="text-xs text-stone-400">Dépenses ce mois-ci</p>
           <p className="font-display text-xl font-bold text-stone-900">{formatFCFA(totalMois)}</p>
         </div>
-        <button
-          onClick={() => setModaleOuverte(true)}
-          className="flex items-center gap-1.5 bg-stone-900 text-white text-sm font-medium px-3.5 py-2 rounded-lg"
-        >
-          <Plus size={15} /> Nouvelle dépense
-        </button>
+        {peutGerer && (
+          <button
+            onClick={() => setModaleOuverte(true)}
+            className="flex items-center gap-1.5 bg-stone-900 text-white text-sm font-medium px-3.5 py-2 rounded-lg"
+          >
+            <Plus size={15} /> Nouvelle dépense
+          </button>
+        )}
       </div>
 
       <div className="bg-white border border-stone-200 rounded-xl divide-y divide-stone-100">

@@ -12,15 +12,20 @@ import {
   Bell,
   CalendarClock,
   PackageX,
+  PackageMinus,
   Wallet,
+  Coins,
+  Archive,
+  Gauge,
 } from "lucide-react";
 import { BarChart, Bar, XAxis, ResponsiveContainer, Tooltip, Cell } from "recharts";
 import { supabase } from "../../lib/supabaseClient";
 import { useAuth } from "../../hooks/useAuth";
 import { listerClients, clientsAvecCreanceEnRetard } from "../../services/clientsService";
 import { totalSortiesArgentDuMois } from "../../services/depensesService";
-import { calculerStatutAbonnement, STYLES_STATUT_ABONNEMENT } from "../../lib/abonnement";
-import type { Alerte, Article, Client } from "../../types";
+import { obtenirTableauDecisionnel, listerStockDormant } from "../../services/decisionnelService";
+import { calculerStatutAbonnement, STYLES_STATUT_ABONNEMENT, niveauAcces } from "../../lib/abonnement";
+import type { Alerte, Article, Client, TableauDecisionnel } from "../../types";
 
 function formatFCFA(montant: number): string {
   return Math.round(montant).toLocaleString("fr-FR") + " F";
@@ -50,6 +55,9 @@ export function DashboardPage() {
   const [produitsAEvacuer, setProduitsAEvacuer] = useState<Article[]>([]);
   const [produitsExpires, setProduitsExpires] = useState<Article[]>([]);
   const [sortiesArgentMois, setSortiesArgentMois] = useState({ totalDepenses: 0, totalPersonnel: 0 });
+  const [decisionnel, setDecisionnel] = useState<TableauDecisionnel | null>(null);
+  const [stockDormant, setStockDormant] = useState<Article[]>([]);
+  const [afficherDetailStockDormant, setAfficherDetailStockDormant] = useState(false);
 
   useEffect(() => {
     if (!entreprise) return;
@@ -150,8 +158,9 @@ export function DashboardPage() {
       setTopArticles(top);
 
       // Widget sectoriel : dette fournisseurs, uniquement pour les
-      // entreprises du secteur quincaillerie.
-      if (entreprise!.secteur_activite === "quincaillerie") {
+      // entreprises du secteur quincaillerie ayant un accès complet
+      // (module Fournisseurs non disponible en essai/starter).
+      if (entreprise!.secteur_activite === "quincaillerie" && niveauAcces(entreprise!.plan_abonnement) === "complet") {
         const [{ data: fournisseurs }, { count: commandesEnAttente }] = await Promise.all([
           supabase.from("fournisseurs").select("solde_du").eq("entreprise_id", entreprise!.id),
           supabase
@@ -194,8 +203,22 @@ export function DashboardPage() {
       }
 
       // Vision globale (tous secteurs) : dépenses + paiements personnel
-      // du mois en cours.
-      setSortiesArgentMois(await totalSortiesArgentDuMois(entreprise!.id));
+      // du mois en cours — module non disponible en essai/starter.
+      if (niveauAcces(entreprise!.plan_abonnement) === "complet") {
+        setSortiesArgentMois(await totalSortiesArgentDuMois(entreprise!.id));
+      }
+
+      // Tableau de bord décisionnel AKWEO : CA/marge du mois, créances,
+      // argent immobilisé, ruptures, stock dormant — réservé à l'accès
+      // complet (analyse avancée au-delà du simple rapport quotidien).
+      if (niveauAcces(entreprise!.plan_abonnement) === "complet") {
+        const [tableau, dormant] = await Promise.all([
+          obtenirTableauDecisionnel(entreprise!.id),
+          listerStockDormant(entreprise!.id),
+        ]);
+        setDecisionnel(tableau);
+        setStockDormant(dormant);
+      }
 
       setChargement(false);
     }
@@ -217,6 +240,7 @@ export function DashboardPage() {
 
   const [clocheOuverte, setClocheOuverte] = useState(false);
   const infoAbonnement = entreprise ? calculerStatutAbonnement(entreprise) : null;
+  const accesComplet = entreprise ? niveauAcces(entreprise.plan_abonnement) === "complet" : true;
   const abonnementAAlerter = infoAbonnement?.statut === "alerte" || infoAbonnement?.statut === "expire";
 
   if (chargement) {
@@ -335,30 +359,103 @@ export function DashboardPage() {
         </div>
       </div>
 
+      {/* Vue décisionnelle AKWEO : CA/marge du mois, argent immobilisé, ruptures, stock dormant */}
+      {accesComplet && decisionnel && (
+        <div className="bg-white border border-stone-200 rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Gauge size={16} className="text-slate-500" />
+            <p className="font-display text-lg font-bold text-stone-900">Vue décisionnelle AKWEO</p>
+          </div>
+          <div className="grid grid-cols-2 gap-3 mb-3">
+            <div>
+              <p className="text-xs text-stone-500 flex items-center gap-1">
+                <TrendingUp size={12} /> CA du mois (net des avoirs)
+              </p>
+              <p className="font-display text-xl font-bold text-stone-900 mt-0.5">
+                {formatFCFA(decisionnel.ca_mois)}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-stone-500 flex items-center gap-1">
+                <Coins size={12} /> Marge du mois
+              </p>
+              <p className="font-display text-xl font-bold text-stone-900 mt-0.5">
+                {formatFCFA(decisionnel.marge_mois)}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-stone-500 flex items-center gap-1">
+                <Archive size={12} /> Argent immobilisé en stock
+              </p>
+              <p className="font-display text-xl font-bold text-stone-900 mt-0.5">
+                {formatFCFA(decisionnel.argent_immobilise)}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-stone-500 flex items-center gap-1">
+                <PackageMinus size={12} /> Articles en rupture
+              </p>
+              <p className={`font-display text-xl font-bold mt-0.5 ${decisionnel.nombre_ruptures > 0 ? "text-red-600" : "text-stone-900"}`}>
+                {decisionnel.nombre_ruptures}
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={() => setAfficherDetailStockDormant((v) => !v)}
+            className="w-full flex items-center justify-between text-left border-t border-stone-100 pt-3"
+          >
+            <span className="text-xs text-stone-500 flex items-center gap-1">
+              <PackageX size={12} /> Stock dormant (aucune vente depuis 60 jours)
+            </span>
+            <span className="text-sm font-semibold text-stone-900">
+              {decisionnel.nombre_stock_dormant} article{decisionnel.nombre_stock_dormant > 1 ? "s" : ""}
+            </span>
+          </button>
+          {afficherDetailStockDormant && (
+            <div className="mt-2 divide-y divide-stone-100 max-h-56 overflow-y-auto">
+              {stockDormant.map((a) => (
+                <div key={a.id} className="flex items-center justify-between py-2">
+                  <p className="text-sm text-stone-700 truncate">{a.designation}</p>
+                  <p className="text-xs text-stone-400 shrink-0 ml-2">
+                    {a.stock_actuel} {a.unite} · {formatFCFA(a.stock_actuel * a.prix_achat)}
+                  </p>
+                </div>
+              ))}
+              {stockDormant.length === 0 && (
+                <p className="text-xs text-stone-400 py-2">Aucun article dormant — bonne rotation de stock.</p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Vision globale (tous secteurs) : dépenses + personnel du mois */}
-      <div className="bg-white border border-stone-200 rounded-xl p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <Wallet size={16} className="text-slate-500" />
-          <p className="font-display text-lg font-bold text-stone-900">Sorties d'argent ce mois-ci</p>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <p className="text-xs text-stone-500">Personnel (salaires, primes...)</p>
-            <p className="font-display text-xl font-bold text-stone-900 mt-0.5">
-              {formatFCFA(sortiesArgentMois.totalPersonnel)}
-            </p>
+      {accesComplet && (
+        <div className="bg-white border border-stone-200 rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Wallet size={16} className="text-slate-500" />
+            <p className="font-display text-lg font-bold text-stone-900">Sorties d'argent ce mois-ci</p>
           </div>
-          <div>
-            <p className="text-xs text-stone-500">Dépenses connexes</p>
-            <p className="font-display text-xl font-bold text-stone-900 mt-0.5">
-              {formatFCFA(sortiesArgentMois.totalDepenses)}
-            </p>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <p className="text-xs text-stone-500">Personnel (salaires, primes...)</p>
+              <p className="font-display text-xl font-bold text-stone-900 mt-0.5">
+                {formatFCFA(sortiesArgentMois.totalPersonnel)}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-stone-500">Dépenses connexes</p>
+              <p className="font-display text-xl font-bold text-stone-900 mt-0.5">
+                {formatFCFA(sortiesArgentMois.totalDepenses)}
+              </p>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Widget spécifique au secteur d'activité */}
-      {entreprise?.secteur_activite === "quincaillerie" && (
+      {entreprise?.secteur_activite === "quincaillerie" && accesComplet && (
         <div className="bg-white border border-stone-200 rounded-xl p-4">
           <div className="flex items-center gap-2 mb-3">
             <Handshake size={16} className="text-slate-500" />
@@ -381,7 +478,7 @@ export function DashboardPage() {
         </div>
       )}
 
-      {entreprise?.secteur_activite === "depot_boissons" && (
+      {entreprise?.secteur_activite === "depot_boissons" && accesComplet && (
         <div className="bg-white border border-stone-200 rounded-xl p-4">
           <div className="flex items-center gap-2 mb-3">
             <Beer size={16} className="text-slate-500" />

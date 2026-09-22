@@ -56,6 +56,33 @@ suite.
      et dépenses connexes, universel à tous les secteurs
    - `migration_tontine.sql` — tontines clients (souscription, cotisations,
      panier privé), universel à tous les secteurs
+   - `migration_role_magasinier.sql` — 4e rôle dédié à la gestion physique
+     du stock
+   - `migration_ledger_creances.sql` — vrai grand livre des créances
+     clients (remplace le simple compteur `solde_credit`) ; réécrit aussi
+     `creer_vente` pour y passer les ventes à crédit
+   - `migration_annulation_avoir.sql` — annulation / avoir de vente
+     (retour total ou partiel, traçabilité complète) ; **doit être
+     exécutée après** `migration_ledger_creances.sql`
+   - `migration_multi_activites.sql` — gestion multi-activités réelle
+     (plusieurs secteurs actifs simultanément)
+   - `migration_dashboard_decisionnel.sql` — tableau de bord décisionnel
+     AKWEO (CA, marge, créances, stock dormant, ruptures, argent
+     immobilisé)
+   - `migration_permissions_individuelles.sql` — le gérant peut ajuster,
+     pour chaque membre de l'équipe et chaque module, un accès
+     aucun/lecture/écriture (au-delà du simple rôle)
+   - `migration_scalabilite_index.sql` — index composites pour tenir la
+     charge à grande échelle. **À exécuter instruction par instruction**
+     (voir l'avertissement en tête du fichier — `CREATE INDEX
+     CONCURRENTLY` ne peut pas tourner dans une transaction, or le SQL
+     Editor de Supabase exécute tout le contenu collé comme une seule
+     transaction)
+
+   ⚠️ Les 3 migrations `ledger_creances` / `annulation_avoir` /
+   `dashboard_decisionnel` touchent la fonction `creer_vente` en cascade
+   (`migration_ledger_creances.sql` la réécrit, les suivantes en
+   dépendent) : respecte l'ordre ci-dessus, ne saute pas de fichier.
 
 ## 2. Configurer le projet local
 
@@ -282,6 +309,160 @@ rôles, comme Vente/Clients) :
   elle sort les articles du panier du stock, vide le panier et clôture
   la tontine — avec un garde-fou qui refuse la récupération si la
   valeur du panier dépasse le montant réellement épargné
+
+### Consolidation : annulation/avoir, ledger, multi-activités, permissions, décisionnel
+
+- **Annulation / avoir de vente** — depuis `Factures`, bouton "Annuler /
+  Avoir" (réservé gérant/comptable) sur toute vente non déjà annulée.
+  Retour total ou ligne par ligne, quantité par quantité. La fonction
+  RPC atomique `creer_avoir_vente` remet la marchandise en stock, réduit
+  la créance du client si la vente était à crédit (aucun effet sur le
+  ledger pour une vente payée cash/mobile money — remboursement hors
+  app), et referme automatiquement la vente si tout a fini par être
+  retourné. Chaque avoir génère un PDF numéroté (`AV-YYYYMMDD-0001`)
+- **Vrai ledger des créances** — `clients.solde_credit` n'est plus
+  modifié qu'à travers `mouvements_creance` (vente à crédit, paiement,
+  avoir, ajustement), chaque écriture datée, signée, tracée, avec le
+  solde figé au moment où elle a eu lieu. Nouvelle fiche client
+  (`/clients/:id`) affichant l'historique complet
+- **Gestion multi-activités réelle** — une entreprise peut désormais
+  activer plusieurs secteurs à la fois (`entreprises.secteurs_actifs`),
+  ex : quincaillerie ET dépôt de boissons dans le même commerce. Réglage
+  depuis `Paramètres` (gérant uniquement) ; le secteur principal reste
+  toujours actif
+- **Permissions fines** — nouvelle matrice centrale
+  (`src/lib/permissions.ts`) avec 4 rôles : gérant (tout), comptable
+  (pilotage financier : créances, factures, personnel & dépenses,
+  tontines, lecture stock — pas la logistique fournisseurs/livraisons),
+  magasinier *(nouveau)* (stock, inventaire, fournisseurs, livraisons,
+  dépôt boissons — aucun module financier), vendeur (vente, clients,
+  factures, tontines). Appliquée à la fois dans la navigation
+  (`AppShell`) et en garde-fou côté route (`ProtectedRoute`, avec une
+  page d'atterrissage par défaut par rôle pour éviter toute boucle de
+  redirection)
+- **Dashboard décisionnel AKWEO** — nouvelle section sur le tableau de
+  bord (accès complet uniquement) : CA net du mois, marge nette du mois
+  (l'un et l'autre déduits des avoirs émis), total des créances, argent
+  immobilisé en stock (stock × prix d'achat), articles en rupture, et
+  stock dormant (aucune vente depuis 60 jours — liste dépliable),
+  calculés en un seul aller-retour via la fonction RPC
+  `tableau_decisionnel`
+
+### Permissions individuelles (au-delà du rôle)
+
+Chaque rôle a un niveau d'accès **par défaut** pour chaque module (voir
+`src/lib/permissions.ts`), mais le gérant peut désormais l'ajuster
+**à volonté, module par module, pour chaque membre de son équipe** :
+
+- Sur `Équipe`, bouton **"Accès"** à côté de chaque membre (sauf un
+  autre gérant — ce rôle n'est jamais restreignable, toujours accès
+  complet)
+- Pour chaque module, trois niveaux possibles :
+  - **Aucun** — le module disparaît de sa navigation, route bloquée
+    même en accès direct par URL
+  - **Lecture** — le module reste visible, mais les boutons de
+    création/modification/action sont masqués (consultation seule)
+  - **Écriture** — accès complet (comportement du rôle par défaut)
+- Exemple concret : un comptable n'a normalement que la lecture sur le
+  Stock — le gérant peut lui donner l'écriture ponctuellement, ou au
+  contraire retirer complètement l'accès Factures à un vendeur en
+  particulier
+- Techniquement : table `permissions_utilisateur` (une ligne par
+  couple utilisateur/module en écart avec le défaut du rôle), fonction
+  RPC `definir_permissions_utilisateur` (réservée au gérant, refuse
+  toute tentative sur un compte gérant), résolution combinée
+  rôle + surcharges au chargement du profil (`useAuth`). Le niveau
+  "lecture" est appliqué manuellement dans chaque page (boutons
+  d'action conditionnés à `peutEcrire(permissions, "module")") plutôt
+  que bloqué au niveau des routes, pour que la personne continue de
+  voir les données sans pouvoir les modifier
+- **Limite connue** : les accès sont résolus au chargement du profil,
+  pas en temps réel. Si le gérant modifie les accès de quelqu'un
+  pendant que cette personne est connectée, le changement ne
+  s'applique qu'à sa prochaine connexion (ou après un rafraîchissement
+  de la page)
+
+### Scalabilité (des milliers d'utilisateurs simultanés)
+
+Ce qui a été fait côté code pour tenir la charge à grande échelle :
+
+- **Index composites** (`migration_scalabilite_index.sql`) sur
+  `(entreprise_id, created_at)` pour toutes les tables à fort volume
+  (ventes, mouvements de stock, factures, paiements, livraisons,
+  paiements personnel, tontines...). Sans ça, une requête du type
+  "les ventes de mon entreprise, les plus récentes d'abord" fait un
+  scan + tri à chaque appel ; avec l'index composite, une seule lecture
+  d'index suffit — l'écart se creuse fortement à mesure que
+  l'historique de chaque entreprise grossit
+- **Fonction RLS centrale déjà efficace** : `entreprise_de_l_utilisateur_
+  connecte()` est marquée `stable` (mise en cache par requête) et
+  s'appuie sur la contrainte `unique(auth_user_id)` de `utilisateurs`
+  (index automatique) — l'isolation multi-tenant ne coûte donc qu'une
+  lecture d'index par requête, pas un scan
+- **Plafonds de sécurité sur les listes non bornées** : `listerClients`,
+  `listerArticles`, `listerFournisseurs`, `listerLivraisons`,
+  `listerEmployes`, `listerPaiementsPersonnel`, `listerTontines`
+  ramenaient TOUTE la table sans limite — historiquement sans
+  conséquence avec peu de données, mais dangereux avec des années
+  d'historique accumulé sur des milliers d'entreprises actives.
+  Plafonnées avec des seuils larges mais réels
+- **Tableau de bord consolidé** : les indicateurs décisionnels (CA,
+  marge, créances, stock dormant...) sont calculés en **un seul**
+  aller-retour serveur (`tableau_decisionnel`) plutôt qu'en une
+  dizaine de requêtes séparées — moins de connexions simultanées
+  ouvertes par utilisateur actif
+- **Frontend déjà scalable "gratuitement"** : build statique servi par
+  Cloudflare Pages (CDN edge mondial, ne dépend pas de la charge
+  serveur) ; authentification par JWT sans état côté serveur (pas de
+  session à synchroniser entre instances)
+
+Ce qui reste un choix **d'infrastructure**, hors de portée d'une
+modification de code, et qu'il faut ajuster depuis le dashboard
+Supabase à mesure que le trafic grandit :
+- **Palier de calcul (compute) du projet Supabase** — le plan gratuit /
+  Micro a des limites de connexions et de CPU ; des milliers
+  d'utilisateurs simultanés demandent un palier supérieur (Pro puis
+  compute add-ons dédiés)
+- **Mode du pooler de connexions** (`Session` vs `Transaction`) —
+  vérifie que le projet utilise bien PgBouncer en mode transaction
+  (port 6543) pour le trafic applicatif à fort volume de connexions
+  courtes, comme c'est le cas ici
+- **Monitoring** — surveiller `Database → Reports` dans Supabase
+  (requêtes lentes, connexions actives) une fois en charge réelle, pour
+  repérer d'éventuels autres index manquants propres à ton usage
+  précis
+- **Réplicas de lecture**, si un jour le volume l'exige — au-delà de ce
+  qu'un seul serveur Postgres, même bien indexé, peut absorber
+
+Aucune de ces optimisations de code ne remplace un test de charge réel
+avant un lancement à grande échelle — elles enlèvent les obstacles les
+plus évidents et les plus coûteux à corriger après coup (les index, en
+particulier, sont bien plus simples à poser tôt qu'une fois la table à
+des millions de lignes).
+
+### Filtrage par palier d'abonnement
+
+- **Essai / Starter** (accès basique) : Tableau de bord, Vente, Stock,
+  Tontines, Équipe (plafonnée à **2 comptes**, gérant compris) et
+  Support. Toute tentative d'accès direct à une page réservée aux
+  paliers supérieurs (lien, favori...) redirige silencieusement vers le
+  tableau de bord (`ProtectedRoute`) — la navigation elle-même ne
+  propose déjà que les pages autorisées (`AppShell`)
+- **Business / Pro** (accès complet) : toutes les fonctionnalités,
+  équipe plafonnée à **5 comptes**, gérant compris
+- Le plafond de comptes est vérifié **côté serveur** dans la fonction
+  Edge `creer-utilisateur-equipe` (jamais uniquement côté client) — si
+  tu avais déjà déployé cette fonction, **redéploie-la** :
+  `supabase functions deploy creer-utilisateur-equipe` ; la
+  page Équipe affiche en plus un message et désactive le bouton
+  d'ajout dès que la limite est atteinte
+- Toute valeur de `plan_abonnement` autre que "essai"/"starter" donne un
+  accès complet par défaut (`niveauAcces()` dans `lib/abonnement.ts`) —
+  pour ne jamais bloquer à tort un palier personnalisé attribué
+  manuellement depuis l'admin
+- Nouvelle page **Support** (`/support`), accessible à tous les
+  paliers : contact WhatsApp/téléphone/email configurable via
+  `VITE_SUPPORT_TELEPHONE` / `VITE_SUPPORT_EMAIL`, + FAQ courte
 
 ### Confirmation d'email → retour direct vers l'app
 

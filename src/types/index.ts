@@ -1,5 +1,5 @@
 export type RegimeFiscal = "forfait" | "reel";
-export type RoleUtilisateur = "gerant" | "comptable" | "vendeur";
+export type RoleUtilisateur = "gerant" | "comptable" | "vendeur" | "magasinier";
 export type ModePaiement = "especes" | "mobile_money" | "credit" | "mixte";
 export type StatutVente = "payee" | "partielle" | "creance" | "annulee";
 export type TypeFacture = "simple" | "normalisee";
@@ -66,6 +66,11 @@ export interface Entreprise {
   // Renseigné uniquement quand secteur_activite = "autre" : le libellé
   // que l'utilisateur a saisi lui-même pour décrire son activité.
   secteur_activite_autre: string | null;
+  // Activités simultanément actives (gestion multi-activités) : peut
+  // contenir plusieurs secteurs en plus du secteur principal
+  // (secteur_activite), ex : une quincaillerie qui gère aussi un dépôt
+  // de boissons. Toujours au moins secteur_activite dedans.
+  secteurs_actifs: SecteurActivite[];
 }
 
 export interface Utilisateur {
@@ -135,6 +140,18 @@ export interface LigneVenteInput {
   prix_unitaire: number;
   prix_achat_unitaire: number;
   remise: number;
+}
+
+export interface LigneVente {
+  id: string;
+  vente_id: string;
+  article_id: string;
+  quantite: number;
+  prix_unitaire: number;
+  prix_achat_unitaire: number;
+  remise: number;
+  montant_ligne: number;
+  article?: { designation: string; unite: string };
 }
 
 export interface Vente {
@@ -386,3 +403,68 @@ export const LABELS_STATUT_TONTINE: Record<StatutTontine, { label: string; bg: s
   atteint: { label: "Plafond atteint", bg: "bg-emerald-50", texte: "text-emerald-700" },
   cloturee: { label: "Clôturée", bg: "bg-stone-100", texte: "text-stone-500" },
 };
+
+// =====================================================================
+// ANNULATION / AVOIR DE VENTE
+// =====================================================================
+
+export interface Avoir {
+  id: string;
+  entreprise_id: string;
+  vente_id: string;
+  numero_avoir: string;
+  motif: string;
+  montant_total: number;
+  utilisateur_id: string | null;
+  created_at: string;
+}
+
+export interface LigneAvoir {
+  id: string;
+  avoir_id: string;
+  ligne_vente_id: string;
+  article_id: string;
+  quantite: number;
+  prix_unitaire: number;
+  montant_ligne: number;
+}
+
+// =====================================================================
+// LEDGER DES CRÉANCES CLIENTS
+// =====================================================================
+
+export type TypeMouvementCreance = "vente_credit" | "paiement" | "avoir" | "ajustement";
+
+export interface MouvementCreance {
+  id: string;
+  entreprise_id: string;
+  client_id: string;
+  type_mouvement: TypeMouvementCreance;
+  montant: number; // signé : positif = augmente la créance, négatif = la diminue
+  solde_apres: number;
+  reference_vente_id: string | null;
+  reference_avoir_id: string | null;
+  motif: string | null;
+  utilisateur_id: string | null;
+  created_at: string;
+}
+
+export const LABELS_TYPE_MOUVEMENT_CREANCE: Record<TypeMouvementCreance, string> = {
+  vente_credit: "Vente à crédit",
+  paiement: "Paiement reçu",
+  avoir: "Avoir",
+  ajustement: "Ajustement",
+};
+
+// =====================================================================
+// TABLEAU DE BORD DÉCISIONNEL AKWEO
+// =====================================================================
+
+export interface TableauDecisionnel {
+  ca_mois: number;
+  marge_mois: number;
+  total_creances: number;
+  argent_immobilise: number;
+  nombre_ruptures: number;
+  nombre_stock_dormant: number;
+}

@@ -25,7 +25,7 @@ Deno.serve(async (req: Request) => {
     if (!email || !motDePasse || !nom || !role) {
       return reponseErreur("Champs manquants.", 400);
     }
-    if (!["vendeur", "comptable"].includes(role)) {
+    if (!["vendeur", "comptable", "magasinier"].includes(role)) {
       return reponseErreur("Rôle invalide.", 400);
     }
 
@@ -63,6 +63,30 @@ Deno.serve(async (req: Request) => {
     }
     if (profilAppelant.role !== "gerant") {
       return reponseErreur("Seul un gérant peut créer un compte d'équipe.", 403);
+    }
+
+    // Plafond de comptes selon le palier d'abonnement : on revérifie ici
+    // côté serveur (jamais confiance dans une seule vérification client)
+    // le même calcul que src/lib/abonnement.ts (limiteEquipe).
+    const { data: entrepriseAppelant } = await supabaseAppelant
+      .from("entreprises")
+      .select("plan_abonnement")
+      .eq("id", profilAppelant.entreprise_id)
+      .single();
+
+    const planAbonnement = entrepriseAppelant?.plan_abonnement || "essai";
+    const limiteComptes = planAbonnement === "essai" || planAbonnement === "starter" ? 2 : 5;
+
+    const { count: nombreComptesActuels } = await supabaseAppelant
+      .from("utilisateurs")
+      .select("id", { count: "exact", head: true })
+      .eq("entreprise_id", profilAppelant.entreprise_id);
+
+    if ((nombreComptesActuels ?? 0) >= limiteComptes) {
+      return reponseErreur(
+        `Limite de ${limiteComptes} comptes atteinte pour ton palier d'abonnement. Passe sur un palier supérieur pour ajouter d'autres membres.`,
+        403
+      );
     }
 
     // Client "admin" : celui-ci utilise la clé service_role, UNIQUEMENT

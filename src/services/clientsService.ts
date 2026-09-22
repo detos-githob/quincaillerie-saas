@@ -1,11 +1,18 @@
 import { supabase } from "../lib/supabaseClient";
-import type { Client } from "../types";
+import type { Client, MouvementCreance } from "../types";
+
+export async function obtenirClient(id: string): Promise<Client> {
+  const { data, error } = await supabase.from("clients").select("*").eq("id", id).single();
+  if (error) throw error;
+  return data as Client;
+}
 
 export async function listerClients(): Promise<Client[]> {
   const { data, error } = await supabase
     .from("clients")
     .select("*")
-    .order("nom", { ascending: true });
+    .order("nom", { ascending: true })
+    .limit(2000);
 
   if (error) throw error;
   return data as Client[];
@@ -39,21 +46,26 @@ export async function enregistrerPaiementClient(
   clientId: string,
   montant: number,
   modePaiement: "especes" | "mobile_money",
-  soldeActuel: number
+  utilisateurId: string | null
 ): Promise<void> {
-  const { error: erreurPaiement } = await supabase.from("paiements").insert({
-    entreprise_id: entrepriseId,
-    client_id: clientId,
-    montant,
-    mode_paiement: modePaiement,
+  const { error } = await supabase.rpc("enregistrer_paiement_client", {
+    p_entreprise_id: entrepriseId,
+    p_client_id: clientId,
+    p_montant: montant,
+    p_mode_paiement: modePaiement,
+    p_utilisateur_id: utilisateurId,
   });
-  if (erreurPaiement) throw erreurPaiement;
+  if (error) throw error;
+}
 
-  const { error: erreurClient } = await supabase
-    .from("clients")
-    .update({ solde_credit: Math.max(0, soldeActuel - montant) })
-    .eq("id", clientId);
-  if (erreurClient) throw erreurClient;
+export async function listerMouvementsCreance(clientId: string): Promise<MouvementCreance[]> {
+  const { data, error } = await supabase
+    .from("mouvements_creance")
+    .select("*")
+    .eq("client_id", clientId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return data as MouvementCreance[];
 }
 
 export function clientsAvecCreanceEnRetard(clients: Client[]): Client[] {

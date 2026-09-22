@@ -11,7 +11,8 @@ export async function listerFournisseurs(): Promise<Fournisseur[]> {
     .from("fournisseurs")
     .select("*")
     .eq("actif", true)
-    .order("nom", { ascending: true });
+    .order("nom", { ascending: true })
+    .limit(1000);
   if (error) throw error;
   return data as Fournisseur[];
 }

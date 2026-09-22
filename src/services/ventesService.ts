@@ -1,5 +1,5 @@
 import { supabase } from "../lib/supabaseClient";
-import type { LigneVenteInput, ModePaiement, TypeFacture } from "../types";
+import type { Avoir, LigneVente, LigneVenteInput, ModePaiement, TypeFacture, Vente } from "../types";
 import {
   ajouterVenteEnAttente,
   listerVentesEnAttente,
@@ -71,4 +71,77 @@ export async function synchroniserVentesEnAttente(): Promise<{
   }
 
   return { reussies, echouees };
+}
+
+// =====================================================================
+// ANNULATION / AVOIR DE VENTE
+// =====================================================================
+
+export async function obtenirVente(id: string): Promise<Vente> {
+  const { data, error } = await supabase.from("ventes").select("*").eq("id", id).single();
+  if (error) throw error;
+  return data as Vente;
+}
+
+export async function listerLignesVente(venteId: string): Promise<LigneVente[]> {
+  const { data, error } = await supabase
+    .from("lignes_vente")
+    .select("*, article:articles(designation, unite)")
+    .eq("vente_id", venteId);
+  if (error) throw error;
+  return data as unknown as LigneVente[];
+}
+
+export async function listerAvoirsVente(venteId: string): Promise<Avoir[]> {
+  const { data, error } = await supabase
+    .from("avoirs")
+    .select("*")
+    .eq("vente_id", venteId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return data as Avoir[];
+}
+
+export async function obtenirAvoir(id: string): Promise<Avoir> {
+  const { data, error } = await supabase.from("avoirs").select("*").eq("id", id).single();
+  if (error) throw error;
+  return data as Avoir;
+}
+
+export async function listerQuantitesRetourneesParLigne(venteId: string): Promise<Record<string, number>> {
+  const { data, error } = await supabase
+    .from("lignes_avoir")
+    .select("ligne_vente_id, quantite, avoir:avoirs!inner(vente_id)")
+    .eq("avoir.vente_id", venteId);
+  if (error) throw error;
+  const totaux: Record<string, number> = {};
+  for (const ligne of (data as any[]) || []) {
+    totaux[ligne.ligne_vente_id] = (totaux[ligne.ligne_vente_id] || 0) + Number(ligne.quantite);
+  }
+  return totaux;
+}
+
+/**
+ * Crée un avoir (annulation totale ou retour partiel) sur une vente :
+ * remet en stock les quantités retournées, réduit la créance du client
+ * si la vente était à crédit, et referme automatiquement la vente si
+ * la totalité de ses lignes a fini par être retournée — via la
+ * fonction RPC atomique `creer_avoir_vente`.
+ */
+export async function creerAvoirVente(
+  venteId: string,
+  entrepriseId: string,
+  motif: string,
+  lignes: { ligne_vente_id: string; quantite: number }[],
+  utilisateurId: string | null
+): Promise<string> {
+  const { data, error } = await supabase.rpc("creer_avoir_vente", {
+    p_vente_id: venteId,
+    p_entreprise_id: entrepriseId,
+    p_motif: motif,
+    p_lignes: lignes,
+    p_utilisateur_id: utilisateurId,
+  });
+  if (error) throw error;
+  return data as string;
 }

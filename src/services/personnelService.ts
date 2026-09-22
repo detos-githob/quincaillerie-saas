@@ -6,7 +6,8 @@ export async function listerEmployes(): Promise<Employe[]> {
     .from("employes")
     .select("*")
     .eq("actif", true)
-    .order("nom", { ascending: true });
+    .order("nom", { ascending: true })
+    .limit(1000);
   if (error) throw error;
   return data as Employe[];
 }
@@ -38,7 +39,8 @@ export async function listerPaiementsPersonnel(employeId?: string): Promise<Paie
   let requete = supabase
     .from("paiements_personnel")
     .select("*, employe:employes(nom, poste)")
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(300);
   if (employeId) requete = requete.eq("employe_id", employeId);
   const { data, error } = await requete;
   if (error) throw error;

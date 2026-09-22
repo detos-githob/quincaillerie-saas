@@ -49,3 +49,50 @@ export function calculerStatutAbonnement(entreprise: Entreprise): InfoAbonnement
 
   return { statut: "actif", joursRestants };
 }
+
+// =====================================================================
+// NIVEAU D'ACCÈS PAR PALIER D'ABONNEMENT
+// =====================================================================
+
+export type NiveauAcces = "basique" | "complet";
+
+/**
+ * "essai" et "starter" → accès basique (fonctionnalités restreintes).
+ * Toute autre valeur (business, pro, illimité, ou un palier futur) →
+ * accès complet par défaut : on ne restreint que ce qui est
+ * explicitement nommé "basique", jamais par défaut, pour ne jamais
+ * bloquer à tort un client payant sur un palier qu'on ne reconnaît pas.
+ */
+export function niveauAcces(planAbonnement: string): NiveauAcces {
+  return planAbonnement === "essai" || planAbonnement === "starter" ? "basique" : "complet";
+}
+
+/** Nombre total de comptes utilisateurs autorisés, gérant compris. */
+export function limiteEquipe(planAbonnement: string): number {
+  return niveauAcces(planAbonnement) === "basique" ? 2 : 5;
+}
+
+/**
+ * Chemins accessibles en accès "basique" (essai/starter) : tableau de
+ * bord (rapport quotidien), vente journalière, stock, tontine, équipe
+ * (plafonnée), support, et la gestion de l'abonnement lui-même (pour
+ * pouvoir passer sur un palier supérieur). Testé par préfixe pour
+ * couvrir les sous-routes (ex : /tontines/:id).
+ */
+export const PREFIXES_ROUTES_ACCES_BASIQUE = [
+  "/",
+  "/vente",
+  "/stock",
+  "/tontines",
+  "/equipe",
+  "/mon-abonnement",
+  "/support",
+  "/offres",
+  "/paiement",
+];
+
+export function routeAutoriseeEnAccesBasique(chemin: string): boolean {
+  return PREFIXES_ROUTES_ACCES_BASIQUE.some((prefixe) =>
+    prefixe === "/" ? chemin === "/" : chemin.startsWith(prefixe)
+  );
+}

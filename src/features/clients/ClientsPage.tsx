@@ -1,7 +1,9 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
 import { Plus, X, User } from "lucide-react";
 import { listerClients, creerClient, enregistrerPaiementClient } from "../../services/clientsService";
 import { useAuth } from "../../hooks/useAuth";
+import { peutEcrire } from "../../lib/permissions";
 import { LABELS_TYPE_CLIENT } from "../../lib/tarification";
 import type { Client, TypeClient } from "../../types";
 
@@ -10,6 +12,9 @@ function formatFCFA(montant: number): string {
 }
 
 export function ClientsPage() {
+  const navigate = useNavigate();
+  const { permissions } = useAuth();
+  const peutGerer = peutEcrire(permissions, "clients");
   const [clients, setClients] = useState<Client[]>([]);
   const [chargement, setChargement] = useState(true);
   const [modaleOuverte, setModaleOuverte] = useState(false);
@@ -29,18 +34,23 @@ export function ClientsPage() {
     <div className="max-w-3xl mx-auto px-4 py-5">
       <div className="flex items-center justify-between mb-4">
         <h1 className="font-display text-2xl font-bold text-stone-900">Clients</h1>
-        <button
-          onClick={() => setModaleOuverte(true)}
-          className="flex items-center gap-1.5 bg-stone-900 text-white text-sm font-medium px-3.5 py-2 rounded-lg"
-        >
-          <Plus size={16} /> Nouveau client
-        </button>
+        {peutGerer && (
+          <button
+            onClick={() => setModaleOuverte(true)}
+            className="flex items-center gap-1.5 bg-stone-900 text-white text-sm font-medium px-3.5 py-2 rounded-lg"
+          >
+            <Plus size={16} /> Nouveau client
+          </button>
+        )}
       </div>
 
       <div className="bg-white border border-stone-200 rounded-xl divide-y divide-stone-100">
         {clients.map((client) => (
           <div key={client.id} className="flex items-center justify-between p-4">
-            <div className="flex items-center gap-3 min-w-0">
+            <button
+              onClick={() => navigate(`/clients/${client.id}`)}
+              className="flex items-center gap-3 min-w-0 text-left flex-1"
+            >
               <span className="flex items-center justify-center w-9 h-9 rounded-full bg-stone-100 shrink-0">
                 <User size={16} className="text-stone-400" />
               </span>
@@ -60,17 +70,23 @@ export function ClientsPage() {
                   )}
                 </p>
               </div>
-            </div>
+            </button>
             {client.solde_credit > 0 ? (
-              <button
-                onClick={() => setClientPaiement(client)}
-                className="text-right shrink-0"
-              >
-                <p className="text-sm font-semibold text-red-600">{formatFCFA(client.solde_credit)}</p>
-                <p className="text-[11px] text-stone-400">Encaisser →</p>
-              </button>
+              peutGerer ? (
+                <button
+                  onClick={() => setClientPaiement(client)}
+                  className="text-right shrink-0 ml-2"
+                >
+                  <p className="text-sm font-semibold text-red-600">{formatFCFA(client.solde_credit)}</p>
+                  <p className="text-[11px] text-stone-400">Encaisser →</p>
+                </button>
+              ) : (
+                <span className="text-sm font-semibold text-red-600 shrink-0 ml-2">
+                  {formatFCFA(client.solde_credit)}
+                </span>
+              )
             ) : (
-              <span className="text-xs text-stone-300 shrink-0">Aucune créance</span>
+              <span className="text-xs text-stone-300 shrink-0 ml-2">Aucune créance</span>
             )}
           </div>
         ))}
@@ -198,7 +214,7 @@ function ModalePaiement({
   onFerme: () => void;
   onPaye: (montant: number) => void;
 }) {
-  const { entreprise } = useAuth();
+  const { entreprise, utilisateur } = useAuth();
   const [montant, setMontant] = useState(String(client.solde_credit));
   const [mode, setMode] = useState<"especes" | "mobile_money">("especes");
   const [enCours, setEnCours] = useState(false);
@@ -207,7 +223,7 @@ function ModalePaiement({
     e.preventDefault();
     if (!entreprise) return;
     setEnCours(true);
-    await enregistrerPaiementClient(entreprise.id, client.id, Number(montant), mode, client.solde_credit);
+    await enregistrerPaiementClient(entreprise.id, client.id, Number(montant), mode, utilisateur?.id || null);
     onPaye(Number(montant));
     onFerme();
   }

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Plus, Package, Search, Pencil } from "lucide-react";
 import { listerArticles, ajusterStock } from "../../services/articlesService";
 import { useAuth } from "../../hooks/useAuth";
+import { peutEcrire } from "../../lib/permissions";
 import { ArticleFormModal } from "./ArticleFormModal";
 import type { Article } from "../../types";
 
@@ -10,8 +11,8 @@ function formatFCFA(montant: number): string {
 }
 
 export function StockPage() {
-  const { entreprise, utilisateur } = useAuth();
-  const peutGererArticles = utilisateur?.role === "gerant" || utilisateur?.role === "comptable";
+  const { entreprise, utilisateur, permissions } = useAuth();
+  const peutGererArticles = peutEcrire(permissions, "stock");
   const [articles, setArticles] = useState<Article[]>([]);
   const [recherche, setRecherche] = useState("");
   const [modaleOuverte, setModaleOuverte] = useState(false);
@@ -121,32 +122,34 @@ export function StockPage() {
                 </div>
               </button>
 
-              <div className="flex items-center gap-1.5 shrink-0">
-                <button
-                  onClick={() => gererAjustement(article, -1)}
-                  className="w-7 h-7 flex items-center justify-center rounded-full border border-stone-300 text-stone-600 text-sm shrink-0"
-                  title={`Retirer ${quantiteSaisie(article.id)} ${article.unite}`}
-                >
-                  −
-                </button>
-                <input
-                  type="number"
-                  min={1}
-                  value={quantitesSaisies[article.id] ?? "1"}
-                  onChange={(e) =>
-                    setQuantitesSaisies((prev) => ({ ...prev, [article.id]: e.target.value }))
-                  }
-                  onFocus={(e) => e.target.select()}
-                  className="w-14 text-center text-sm border border-stone-300 rounded-lg py-1 shrink-0"
-                />
-                <button
-                  onClick={() => gererAjustement(article, 1)}
-                  className="w-7 h-7 flex items-center justify-center rounded-full border border-stone-300 text-stone-600 text-sm shrink-0"
-                  title={`Ajouter ${quantiteSaisie(article.id)} ${article.unite}`}
-                >
-                  +
-                </button>
-              </div>
+              {peutGererArticles && (
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    onClick={() => gererAjustement(article, -1)}
+                    className="w-7 h-7 flex items-center justify-center rounded-full border border-stone-300 text-stone-600 text-sm shrink-0"
+                    title={`Retirer ${quantiteSaisie(article.id)} ${article.unite}`}
+                  >
+                    −
+                  </button>
+                  <input
+                    type="number"
+                    min={1}
+                    value={quantitesSaisies[article.id] ?? "1"}
+                    onChange={(e) =>
+                      setQuantitesSaisies((prev) => ({ ...prev, [article.id]: e.target.value }))
+                    }
+                    onFocus={(e) => e.target.select()}
+                    className="w-14 text-center text-sm border border-stone-300 rounded-lg py-1 shrink-0"
+                  />
+                  <button
+                    onClick={() => gererAjustement(article, 1)}
+                    className="w-7 h-7 flex items-center justify-center rounded-full border border-stone-300 text-stone-600 text-sm shrink-0"
+                    title={`Ajouter ${quantiteSaisie(article.id)} ${article.unite}`}
+                  >
+                    +
+                  </button>
+                </div>
+              )}
             </div>
           );
         })}

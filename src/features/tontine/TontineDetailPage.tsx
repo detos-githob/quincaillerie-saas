@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, X, Receipt, ShoppingBasket, PackageCheck, Trash2 } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
+import { peutEcrire } from "../../lib/permissions";
 import { listerArticles } from "../../services/articlesService";
 import {
   obtenirTontine,
@@ -22,7 +23,8 @@ function formatFCFA(montant: number): string {
 
 export function TontineDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const { entreprise, utilisateur } = useAuth();
+  const { entreprise, utilisateur, permissions } = useAuth();
+  const peutGerer = peutEcrire(permissions, "tontines");
   const navigate = useNavigate();
 
   const [tontine, setTontine] = useState<Tontine | null>(null);
@@ -99,7 +101,7 @@ export function TontineDetailPage() {
           </span>
           <span className="font-semibold text-stone-900">{progression}%</span>
         </div>
-        {tontine.statut !== "cloturee" && (
+        {tontine.statut !== "cloturee" && peutGerer && (
           <button
             onClick={() => setModaleCotisationOuverte(true)}
             className="w-full mt-3 flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-stone-900 font-semibold py-2.5 rounded-xl"
@@ -107,7 +109,7 @@ export function TontineDetailPage() {
             <Receipt size={16} /> Enregistrer une cotisation
           </button>
         )}
-        {tontine.statut === "atteint" && (
+        {tontine.statut === "atteint" && peutGerer && (
           <div className="mt-3">
             <button
               onClick={gererRecuperation}
@@ -133,7 +135,7 @@ export function TontineDetailPage() {
       <div className="mb-5">
         <div className="flex items-center justify-between mb-2">
           <p className="font-display text-lg font-bold text-stone-900">Panier privé</p>
-          {tontine.statut !== "cloturee" && (
+          {tontine.statut !== "cloturee" && peutGerer && (
             <button
               onClick={() => setModaleAjoutArticleOuverte(true)}
               className="flex items-center gap-1.5 text-xs font-medium text-stone-600 border border-stone-300 px-2.5 py-1.5 rounded-lg"
@@ -151,7 +153,7 @@ export function TontineDetailPage() {
                   {l.quantite} {l.article?.unite} · {formatFCFA((l.article?.prix_vente || 0) * l.quantite)}
                 </p>
               </div>
-              {tontine.statut !== "cloturee" && (
+              {tontine.statut !== "cloturee" && peutGerer && (
                 <button
                   onClick={async () => {
                     await retirerProduitPanier(l.id);

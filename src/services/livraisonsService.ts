@@ -5,7 +5,8 @@ export async function listerLivraisons(): Promise<Livraison[]> {
   const { data, error } = await supabase
     .from("livraisons")
     .select("*, client:clients(nom, telephone)")
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(300);
   if (error) throw error;
   return data as unknown as Livraison[];
 }

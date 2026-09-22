@@ -8,15 +8,15 @@ export async function listerEquipe(): Promise<Utilisateur[]> {
 }
 
 /**
- * Crée un compte pour un membre de l'équipe (vendeur ou comptable) en
- * appelant l'Edge Function dédiée, qui seule a le droit de créer un
- * compte d'authentification pour quelqu'un d'autre.
+ * Crée un compte pour un membre de l'équipe (vendeur, comptable ou
+ * magasinier) en appelant l'Edge Function dédiée, qui seule a le droit
+ * de créer un compte d'authentification pour quelqu'un d'autre.
  */
 export async function creerMembreEquipe(
   nom: string,
   email: string,
   motDePasse: string,
-  role: "vendeur" | "comptable"
+  role: "vendeur" | "comptable" | "magasinier"
 ): Promise<void> {
   const {
     data: { session },

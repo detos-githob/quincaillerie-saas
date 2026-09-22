@@ -6,7 +6,8 @@ export async function listerArticles(): Promise<Article[]> {
     .from("articles")
     .select("*")
     .eq("actif", true)
-    .order("designation", { ascending: true });
+    .order("designation", { ascending: true })
+    .limit(3000);
 
   if (error) throw error;
   return data as Article[];

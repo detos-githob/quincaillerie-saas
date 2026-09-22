@@ -1,6 +1,7 @@
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
-import { calculerStatutAbonnement } from "../lib/abonnement";
+import { calculerStatutAbonnement, niveauAcces, routeAutoriseeEnAccesBasique } from "../lib/abonnement";
+import { moduleDeLaRoute, peutAcceder, routeParDefaut } from "../lib/permissions";
 import type { ReactNode } from "react";
 
 // Pages accessibles même si l'abonnement est expiré, pour permettre au
@@ -8,7 +9,7 @@ import type { ReactNode } from "react";
 const CHEMINS_EXEMPTES_EXPIRATION = ["/mon-abonnement", "/offres", "/paiement"];
 
 export function ProtectedRoute({ children }: { children: ReactNode }) {
-  const { session, utilisateur, entreprise, chargement } = useAuth();
+  const { session, utilisateur, entreprise, estSuperAdmin, permissions, chargement } = useAuth();
   const location = useLocation();
 
   if (chargement) {
@@ -33,6 +34,42 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
     const { statut } = calculerStatutAbonnement(entreprise);
     if (!entreprise.actif || statut === "expire") {
       return <Navigate to="/abonnement-expire" replace />;
+    }
+  }
+
+  // Accès "basique" (essai/starter) : redirige silencieusement vers la
+  // page d'atterrissage de l'utilisateur toute tentative d'atteindre
+  // une page réservée aux paliers supérieurs (via lien direct, favori,
+  // etc. — la navigation ne propose déjà que les pages autorisées). Le
+  // super admin garde toujours accès à /admin quel que soit le palier
+  // de sa propre entreprise.
+  if (
+    entreprise &&
+    !estSuperAdmin &&
+    niveauAcces(entreprise.plan_abonnement) === "basique" &&
+    !routeAutoriseeEnAccesBasique(location.pathname)
+  ) {
+    const destination = routeParDefaut(permissions);
+    if (location.pathname !== destination) {
+      return <Navigate to={destination} replace />;
+    }
+  }
+
+  // Permissions résolues (rôle + surcharges individuelles définies par
+  // le gérant, "aucun"/"lecture"/"ecriture" par module) : bloque
+  // l'accès direct par URL à un module fermé pour cet utilisateur — la
+  // navigation ne propose déjà que les modules autorisés (AppShell),
+  // ceci est le filet de sécurité côté route. routeParDefaut() garantit
+  // que la destination de repli est toujours elle-même autorisée (pas
+  // de boucle de redirection). Le niveau "lecture" laisse passer la
+  // route (chaque page masque elle-même ses actions d'écriture).
+  if (!estSuperAdmin) {
+    const module = moduleDeLaRoute(location.pathname);
+    if (module && !peutAcceder(permissions, module)) {
+      const destination = routeParDefaut(permissions);
+      if (location.pathname !== destination) {
+        return <Navigate to={destination} replace />;
+      }
     }
   }
 

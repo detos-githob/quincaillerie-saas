@@ -10,6 +10,7 @@ import { DashboardPage } from "./features/dashboard/DashboardPage";
 import { VentePage } from "./features/vente/VentePage";
 import { StockPage } from "./features/stock/StockPage";
 import { ClientsPage } from "./features/clients/ClientsPage";
+import { ClientDetailPage } from "./features/clients/ClientDetailPage";
 import { FacturesPage } from "./features/factures/FacturesPage";
 import { InventairePage } from "./features/inventaire/InventairePage";
 import { InventaireDetailPage } from "./features/inventaire/InventaireDetailPage";
@@ -20,11 +21,13 @@ import { DepotBoissonsPage } from "./features/depot-boissons/DepotBoissonsPage";
 import { DepensesPage } from "./features/personnel/DepensesPage";
 import { TontinesPage } from "./features/tontine/TontinesPage";
 import { TontineDetailPage } from "./features/tontine/TontineDetailPage";
+import { SupportPage } from "./features/support/SupportPage";
 import { EquipePage } from "./features/equipe/EquipePage";
 import { AdminPage } from "./features/admin/AdminPage";
 import { MonAbonnementPage } from "./features/abonnement/MonAbonnementPage";
 import { OffresPage } from "./features/abonnement/OffresPage";
 import { PaiementPage } from "./features/abonnement/PaiementPage";
+import { ParametresPage } from "./features/parametres/ParametresPage";
 
 export default function App() {
   return (
@@ -55,8 +58,11 @@ export default function App() {
             <Route path="/tontines" element={<TontinesPage />} />
             <Route path="/tontines/:id" element={<TontineDetailPage />} />
             <Route path="/clients" element={<ClientsPage />} />
+            <Route path="/clients/:id" element={<ClientDetailPage />} />
             <Route path="/factures" element={<FacturesPage />} />
             <Route path="/equipe" element={<EquipePage />} />
+            <Route path="/support" element={<SupportPage />} />
+            <Route path="/parametres" element={<ParametresPage />} />
             <Route path="/admin" element={<AdminPage />} />
             <Route path="/mon-abonnement" element={<MonAbonnementPage />} />
             <Route path="/offres" element={<OffresPage />} />

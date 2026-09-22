@@ -7,6 +7,7 @@ import {
   enregistrerReglementFournisseur,
 } from "../../services/fournisseursService";
 import { useAuth } from "../../hooks/useAuth";
+import { peutEcrire } from "../../lib/permissions";
 import type { Fournisseur } from "../../types";
 
 function formatFCFA(montant: number): string {
@@ -15,6 +16,8 @@ function formatFCFA(montant: number): string {
 
 export function FournisseursPage() {
   const navigate = useNavigate();
+  const { permissions } = useAuth();
+  const peutGerer = peutEcrire(permissions, "fournisseurs");
   const [fournisseurs, setFournisseurs] = useState<Fournisseur[]>([]);
   const [chargement, setChargement] = useState(true);
   const [modaleOuverte, setModaleOuverte] = useState(false);
@@ -34,12 +37,14 @@ export function FournisseursPage() {
     <div className="max-w-3xl mx-auto px-4 py-5">
       <div className="flex items-center justify-between mb-4">
         <h1 className="font-display text-2xl font-bold text-stone-900">Fournisseurs</h1>
-        <button
-          onClick={() => setModaleOuverte(true)}
-          className="flex items-center gap-1.5 bg-stone-900 text-white text-sm font-medium px-3.5 py-2 rounded-lg"
-        >
-          <Plus size={16} /> Nouveau fournisseur
-        </button>
+        {peutGerer && (
+          <button
+            onClick={() => setModaleOuverte(true)}
+            className="flex items-center gap-1.5 bg-stone-900 text-white text-sm font-medium px-3.5 py-2 rounded-lg"
+          >
+            <Plus size={16} /> Nouveau fournisseur
+          </button>
+        )}
       </div>
 
       <div className="bg-white border border-stone-200 rounded-xl divide-y divide-stone-100">
@@ -61,10 +66,14 @@ export function FournisseursPage() {
               </div>
             </button>
             {f.solde_du > 0 ? (
-              <button onClick={() => setFournisseurReglement(f)} className="text-right shrink-0 ml-2">
-                <p className="text-sm font-semibold text-red-600">{formatFCFA(f.solde_du)}</p>
-                <p className="text-[11px] text-stone-400">Régler →</p>
-              </button>
+              peutGerer ? (
+                <button onClick={() => setFournisseurReglement(f)} className="text-right shrink-0 ml-2">
+                  <p className="text-sm font-semibold text-red-600">{formatFCFA(f.solde_du)}</p>
+                  <p className="text-[11px] text-stone-400">Régler →</p>
+                </button>
+              ) : (
+                <span className="text-sm font-semibold text-red-600 shrink-0 ml-2">{formatFCFA(f.solde_du)}</span>
+              )
             ) : (
               <span className="text-xs text-stone-300 shrink-0 ml-2">Aucune dette</span>
             )}

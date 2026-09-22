@@ -18,49 +18,71 @@ import {
   Beer,
   Wallet,
   PiggyBank,
+  LifeBuoy,
+  Settings,
   MoreHorizontal,
   X,
 } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
 import { useSyncHorsLigne } from "../../hooks/useSyncHorsLigne";
+import { niveauAcces } from "../../lib/abonnement";
+import { peutAcceder } from "../../lib/permissions";
 
 export function AppShell() {
-  const { entreprise, utilisateur, estSuperAdmin, deconnexion } = useAuth();
+  const { entreprise, utilisateur, estSuperAdmin, permissions, deconnexion } = useAuth();
   const { enLigne, nombreEnAttente } = useSyncHorsLigne();
   const location = useLocation();
   const [menuPlusOuvert, setMenuPlusOuvert] = useState(false);
 
-  const role = utilisateur?.role;
-  const estGerantOuComptable = role === "gerant" || role === "comptable";
-  const secteur = entreprise?.secteur_activite;
+  const secteursActifs = entreprise?.secteurs_actifs?.length
+    ? entreprise.secteurs_actifs
+    : entreprise
+      ? [entreprise.secteur_activite]
+      : [];
   // Livraison est utile dès qu'il y a de la marchandise à livrer :
-  // quincaillerie (gros/demi-gros) et dépôt de boissons (casiers).
-  const gereLivraison = secteur === "quincaillerie" || secteur === "depot_boissons";
+  // quincaillerie (gros/demi-gros) et/ou dépôt de boissons (casiers) —
+  // gestion multi-activités : les deux peuvent être actifs à la fois.
+  const gereLivraison = secteursActifs.includes("quincaillerie") || secteursActifs.includes("depot_boissons");
+  // Essai/Starter : accès restreint aux fonctionnalités de base (voir
+  // ProtectedRoute pour le blocage effectif des routes correspondantes).
+  const accesComplet = entreprise ? niveauAcces(entreprise.plan_abonnement) === "complet" : true;
 
   const liensNav = [
-    { to: "/", label: "Tableau de bord", icone: LayoutDashboard, fin: true, visible: estGerantOuComptable },
-    { to: "/vente", label: "Vente", icone: ShoppingCart, visible: true },
-    { to: "/stock", label: "Stock", icone: Package, visible: estGerantOuComptable },
-    { to: "/inventaire", label: "Inventaire", icone: ClipboardList, visible: estGerantOuComptable },
+    { to: "/", label: "Tableau de bord", icone: LayoutDashboard, fin: true, visible: peutAcceder(permissions, "dashboard") },
+    { to: "/vente", label: "Vente", icone: ShoppingCart, visible: peutAcceder(permissions, "vente") },
+    { to: "/stock", label: "Stock", icone: Package, visible: peutAcceder(permissions, "stock") },
+    {
+      to: "/inventaire",
+      label: "Inventaire",
+      icone: ClipboardList,
+      visible: peutAcceder(permissions, "inventaire") && accesComplet,
+    },
     {
       to: "/fournisseurs",
       label: "Fournisseurs",
       icone: Handshake,
-      visible: estGerantOuComptable && secteur === "quincaillerie",
+      visible: peutAcceder(permissions, "fournisseurs") && secteursActifs.includes("quincaillerie") && accesComplet,
     },
-    { to: "/livraisons", label: "Livraisons", icone: Truck, visible: gereLivraison },
+    { to: "/livraisons", label: "Livraisons", icone: Truck, visible: peutAcceder(permissions, "livraisons") && gereLivraison && accesComplet },
     {
       to: "/depot-boissons",
       label: "Dépôt boissons",
       icone: Beer,
-      visible: estGerantOuComptable && secteur === "depot_boissons",
+      visible: peutAcceder(permissions, "depot_boissons") && secteursActifs.includes("depot_boissons") && accesComplet,
     },
-    { to: "/clients", label: "Clients", icone: Users, visible: true },
-    { to: "/tontines", label: "Tontines", icone: PiggyBank, visible: true },
-    { to: "/factures", label: "Factures", icone: FileText, visible: true },
-    { to: "/depenses", label: "Personnel & Dépenses", icone: Wallet, visible: estGerantOuComptable },
-    { to: "/equipe", label: "Équipe", icone: UserCog, visible: role === "gerant" },
-    { to: "/mon-abonnement", label: "Abonnement", icone: CreditCard, visible: role === "gerant" },
+    { to: "/clients", label: "Clients", icone: Users, visible: peutAcceder(permissions, "clients") && accesComplet },
+    { to: "/tontines", label: "Tontines", icone: PiggyBank, visible: peutAcceder(permissions, "tontines") },
+    { to: "/factures", label: "Factures", icone: FileText, visible: peutAcceder(permissions, "factures") && accesComplet },
+    {
+      to: "/depenses",
+      label: "Personnel & Dépenses",
+      icone: Wallet,
+      visible: peutAcceder(permissions, "depenses") && accesComplet,
+    },
+    { to: "/equipe", label: "Équipe", icone: UserCog, visible: peutAcceder(permissions, "equipe") },
+    { to: "/parametres", label: "Paramètres", icone: Settings, visible: peutAcceder(permissions, "parametres") },
+    { to: "/support", label: "Support", icone: LifeBuoy, visible: peutAcceder(permissions, "support") },
+    { to: "/mon-abonnement", label: "Abonnement", icone: CreditCard, visible: peutAcceder(permissions, "abonnement") },
   ].filter((l) => l.visible);
 
   // Sur mobile, au-delà de 5 onglets la barre basse devient illisible :

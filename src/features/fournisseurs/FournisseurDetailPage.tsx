@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Plus, X, PackageCheck } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
+import { peutEcrire } from "../../lib/permissions";
 import { listerArticles } from "../../services/articlesService";
 import {
   listerCommandesFournisseur,
@@ -26,7 +27,8 @@ const LABELS_STATUT: Record<string, { label: string; style: string }> = {
 
 export function FournisseurDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const { entreprise, utilisateur } = useAuth();
+  const { entreprise, utilisateur, permissions } = useAuth();
+  const peutGerer = peutEcrire(permissions, "fournisseurs");
   const navigate = useNavigate();
 
   const [fournisseur, setFournisseur] = useState<Fournisseur | null>(null);
@@ -82,18 +84,20 @@ export function FournisseurDetailPage() {
 
       <div className="flex items-center justify-between mb-3">
         <p className="font-display text-lg font-bold text-stone-900">Commandes</p>
-        <button
-          onClick={() => setModaleOuverte(true)}
-          className="flex items-center gap-1.5 bg-stone-900 text-white text-sm font-medium px-3.5 py-2 rounded-lg"
-        >
-          <Plus size={16} /> Nouvelle commande
-        </button>
+        {peutGerer && (
+          <button
+            onClick={() => setModaleOuverte(true)}
+            className="flex items-center gap-1.5 bg-stone-900 text-white text-sm font-medium px-3.5 py-2 rounded-lg"
+          >
+            <Plus size={16} /> Nouvelle commande
+          </button>
+        )}
       </div>
 
       <div className="bg-white border border-stone-200 rounded-xl divide-y divide-stone-100">
         {commandes.map((cmd) => {
           const statut = LABELS_STATUT[cmd.statut];
-          const peutReceptionner = cmd.statut === "envoyee" || cmd.statut === "receptionnee_partielle";
+          const peutReceptionner = peutGerer && (cmd.statut === "envoyee" || cmd.statut === "receptionnee_partielle");
           return (
             <div key={cmd.id} className="flex items-center justify-between p-4">
               <div className="min-w-0">

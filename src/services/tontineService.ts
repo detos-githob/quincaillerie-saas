@@ -5,7 +5,8 @@ export async function listerTontines(): Promise<Tontine[]> {
   const { data, error } = await supabase
     .from("tontines")
     .select("*, client:clients(nom, telephone)")
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(500);
   if (error) throw error;
   return data as unknown as Tontine[];
 }
