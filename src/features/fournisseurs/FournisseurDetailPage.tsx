@@ -87,7 +87,7 @@ export function FournisseurDetailPage() {
         {peutGerer && (
           <button
             onClick={() => setModaleOuverte(true)}
-            className="flex items-center gap-1.5 bg-stone-900 text-white text-sm font-medium px-3.5 py-2 rounded-lg"
+            className="flex items-center gap-1.5 bg-navy text-white text-sm font-medium px-3.5 py-2 rounded-lg"
           >
             <Plus size={16} /> Nouvelle commande
           </button>
@@ -222,7 +222,7 @@ function ModaleNouvelleCommande({
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center px-4">
-      <div className="absolute inset-0 bg-stone-900/40" onClick={onFerme} />
+      <div className="absolute inset-0 bg-navy/40" onClick={onFerme} />
       <div className="relative bg-white rounded-2xl w-full max-w-lg max-h-[85vh] flex flex-col">
         <div className="flex items-center justify-between px-5 pt-5 pb-3">
           <h2 className="font-display text-xl font-bold text-stone-900">Nouvelle commande</h2>
@@ -362,7 +362,7 @@ function ModaleReception({
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center px-4">
-      <div className="absolute inset-0 bg-stone-900/40" onClick={onFerme} />
+      <div className="absolute inset-0 bg-navy/40" onClick={onFerme} />
       <div className="relative bg-white rounded-2xl w-full max-w-lg max-h-[85vh] flex flex-col">
         <div className="flex items-center justify-between px-5 pt-5 pb-3">
           <h2 className="font-display text-xl font-bold text-stone-900">

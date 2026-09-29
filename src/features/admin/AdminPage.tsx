@@ -85,7 +85,7 @@ export function AdminPage() {
         .font-body { font-family: 'Inter', sans-serif; }
       `}</style>
 
-      <header className="bg-stone-900 text-stone-50 px-5 py-4 relative">
+      <header className="bg-navy text-stone-50 px-5 py-4 relative">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="font-display text-2xl font-bold">Administration — Abonnements</h1>
@@ -96,7 +96,7 @@ export function AdminPage() {
           </div>
           <button
             onClick={() => setClocheOuverte((v) => !v)}
-            className="relative flex items-center justify-center w-10 h-10 rounded-full bg-stone-800 shrink-0"
+            className="relative flex items-center justify-center w-10 h-10 rounded-full bg-navy-800 shrink-0"
           >
             <Bell size={18} />
             {nombreNotifications > 0 && (
@@ -178,7 +178,7 @@ export function AdminPage() {
             onClick={() => setSecteurFiltre("tous")}
             className={`shrink-0 px-3 py-1.5 rounded-full text-sm font-medium border ${
               secteurFiltre === "tous"
-                ? "bg-stone-900 text-white border-stone-900"
+                ? "bg-navy text-white border-navy"
                 : "bg-white text-stone-600 border-stone-300"
             }`}
           >
@@ -193,7 +193,7 @@ export function AdminPage() {
                 onClick={() => setSecteurFiltre(s)}
                 className={`shrink-0 px-3 py-1.5 rounded-full text-sm font-medium border ${
                   secteurFiltre === s
-                    ? "bg-stone-900 text-white border-stone-900"
+                    ? "bg-navy text-white border-navy"
                     : "bg-white text-stone-600 border-stone-300"
                 }`}
               >
@@ -313,7 +313,7 @@ function ModaleAbonnement({
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center px-4">
-      <div className="absolute inset-0 bg-stone-900/40" onClick={onFerme} />
+      <div className="absolute inset-0 bg-navy/40" onClick={onFerme} />
       <div className="relative bg-white rounded-2xl w-full max-w-sm p-5 space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="font-display text-xl font-bold text-stone-900">{entreprise.nom}</h2>

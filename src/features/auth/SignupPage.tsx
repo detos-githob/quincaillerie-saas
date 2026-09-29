@@ -3,7 +3,10 @@ import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { supabase } from "../../lib/supabaseClient";
 import { SelecteurSecteurActivite } from "./SelecteurSecteurActivite";
-import { validerMotDePasse } from "../../lib/security";
+import { POLITIQUE_MOT_DE_PASSE, validerMotDePasse } from "../../lib/security";
+import { CGU_VERSION } from "../../lib/legal";
+import { AuthLayout } from "../../components/layout/AuthLayout";
+import { CaseAcceptationCgu } from "./CaseAcceptationCgu";
 import type { SecteurActivite } from "../../types";
 
 export function SignupPage() {
@@ -18,6 +21,7 @@ export function SignupPage() {
   const [nomGerant, setNomGerant] = useState("");
   const [email, setEmail] = useState("");
   const [motDePasse, setMotDePasse] = useState("");
+  const [cguAcceptees, setCguAcceptees] = useState(false);
 
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -26,6 +30,11 @@ export function SignupPage() {
   async function gererSoumission(e: FormEvent) {
     e.preventDefault();
     setErreur(null);
+
+    if (!cguAcceptees) {
+      setErreur("Tu dois accepter les conditions générales pour créer ton entreprise.");
+      return;
+    }
 
     const erreurMotDePasse = validerMotDePasse(motDePasse);
     if (erreurMotDePasse) {
@@ -38,7 +47,8 @@ export function SignupPage() {
     try {
       const { erreur: erreurInscription, confirmationRequise } = await inscription(
         email,
-        motDePasse
+        motDePasse,
+        CGU_VERSION
       );
       if (erreurInscription) {
         setErreur(erreurInscription);
@@ -66,6 +76,14 @@ export function SignupPage() {
       });
       if (error) throw error;
 
+      // Horodatage serveur de l'acceptation des CGU. Non bloquant :
+      // l'entreprise est déjà créée et la version acceptée reste
+      // mémorisée sur le compte (métadonnées) en cas d'échec ponctuel.
+      const { error: erreurCgu } = await supabase.rpc("enregistrer_acceptation_cgu", {
+        p_version: CGU_VERSION,
+      });
+      if (erreurCgu) console.warn("Enregistrement de l'acceptation des CGU impossible :", erreurCgu.message);
+
       navigate("/");
     } catch (e: any) {
       setErreur(e.message || "Une erreur est survenue lors de la création de l'entreprise.");
@@ -76,10 +94,8 @@ export function SignupPage() {
 
   if (confirmationEnvoyee) {
     return (
-      <div className="min-h-screen bg-stone-50 flex items-center justify-center px-4 font-body">
-        <FontImport />
-        <div className="w-full max-w-sm bg-white border border-stone-200 rounded-2xl p-6 text-center space-y-3">
-          <h1 className="font-display text-2xl font-bold text-stone-900">Vérifie ta boîte mail</h1>
+      <AuthLayout titre="Vérifie ta boîte mail">
+        <div className="bg-white border border-stone-200 rounded-2xl p-6 text-center space-y-3">
           <p className="text-sm text-stone-600">
             Un lien de confirmation a été envoyé à <strong>{email}</strong>. Clique dessus, puis
             reviens te connecter pour terminer la création de ton entreprise.
@@ -91,132 +107,118 @@ export function SignupPage() {
             Aller à la connexion
           </Link>
         </div>
-      </div>
+      </AuthLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-stone-50 flex items-center justify-center px-4 py-10 font-body">
-      <FontImport />
-      <div className="w-full max-w-sm">
-        <div className="text-center mb-6">
-          <h1 className="font-display text-3xl font-bold text-stone-900">
-            Créer ton entreprise
-          </h1>
-          <p className="text-stone-500 text-sm mt-1">
-            Quelques informations pour démarrer
+    <AuthLayout titre="Créer ton entreprise" sousTitre="Quelques informations pour démarrer">
+      <form onSubmit={gererSoumission} className="bg-white border border-stone-200 rounded-2xl p-6 space-y-4">
+        <div>
+          <label className="text-xs font-medium text-stone-500">Nom de l'entreprise</label>
+          <input
+            required
+            value={nomEntreprise}
+            onChange={(e) => setNomEntreprise(e.target.value)}
+            className="w-full mt-1 border border-stone-300 rounded-lg py-2.5 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+            placeholder="Quincaillerie ATTIOGBE, Dépôt Boissons ATTIOGBE..."
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="text-xs font-medium text-stone-500">Régime fiscal</label>
+            <select
+              value={regimeFiscal}
+              onChange={(e) => setRegimeFiscal(e.target.value as "forfait" | "reel")}
+              className="w-full mt-1 border border-stone-300 rounded-lg py-2.5 px-3 text-sm bg-white"
+            >
+              <option value="forfait">Forfait (TPS)</option>
+              <option value="reel">Réel (TVA)</option>
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-stone-500">Téléphone</label>
+            <input
+              value={telephoneEntreprise}
+              onChange={(e) => setTelephoneEntreprise(e.target.value)}
+              className="w-full mt-1 border border-stone-300 rounded-lg py-2.5 px-3 text-sm"
+              placeholder="+229 ..."
+            />
+          </div>
+        </div>
+
+        <hr className="border-stone-100" />
+
+        <SelecteurSecteurActivite
+          valeur={secteurActivite}
+          onChange={setSecteurActivite}
+          valeurAutre={secteurActiviteAutre}
+          onChangeAutre={setSecteurActiviteAutre}
+        />
+
+        <hr className="border-stone-100" />
+
+        <div>
+          <label className="text-xs font-medium text-stone-500">Ton nom (gérant)</label>
+          <input
+            required
+            value={nomGerant}
+            onChange={(e) => setNomGerant(e.target.value)}
+            className="w-full mt-1 border border-stone-300 rounded-lg py-2.5 px-3 text-sm"
+          />
+        </div>
+
+        <div>
+          <label className="text-xs font-medium text-stone-500">Email</label>
+          <input
+            type="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="w-full mt-1 border border-stone-300 rounded-lg py-2.5 px-3 text-sm"
+          />
+        </div>
+
+        <div>
+          <label className="text-xs font-medium text-stone-500">Mot de passe</label>
+          <input
+            type="password"
+            autoComplete="new-password"
+            required
+            minLength={POLITIQUE_MOT_DE_PASSE.longueurMinimale}
+            maxLength={POLITIQUE_MOT_DE_PASSE.longueurMaximale}
+            value={motDePasse}
+            onChange={(e) => setMotDePasse(e.target.value)}
+            className="w-full mt-1 border border-stone-300 rounded-lg py-2.5 px-3 text-sm"
+            placeholder={`${POLITIQUE_MOT_DE_PASSE.longueurMinimale} caractères minimum`}
+          />
+          <p className="text-[11px] text-stone-400 mt-1">
+            Majuscule, minuscule, chiffre et caractère spécial requis.
           </p>
         </div>
 
-        <form onSubmit={gererSoumission} className="bg-white border border-stone-200 rounded-2xl p-6 space-y-4">
-          <div>
-            <label className="text-xs font-medium text-stone-500">Nom de l'entreprise</label>
-            <input
-              required
-              value={nomEntreprise}
-              onChange={(e) => setNomEntreprise(e.target.value)}
-              className="w-full mt-1 border border-stone-300 rounded-lg py-2.5 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
-              placeholder="Quincaillerie ATTIOGBE, Dépôt Boissons ATTIOGBE..."
-            />
-          </div>
+        <CaseAcceptationCgu cochee={cguAcceptees} onChange={setCguAcceptees} />
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs font-medium text-stone-500">Régime fiscal</label>
-              <select
-                value={regimeFiscal}
-                onChange={(e) => setRegimeFiscal(e.target.value as "forfait" | "reel")}
-                className="w-full mt-1 border border-stone-300 rounded-lg py-2.5 px-3 text-sm bg-white"
-              >
-                <option value="forfait">Forfait (TPS)</option>
-                <option value="reel">Réel (TVA)</option>
-              </select>
-            </div>
-            <div>
-              <label className="text-xs font-medium text-stone-500">Téléphone</label>
-              <input
-                value={telephoneEntreprise}
-                onChange={(e) => setTelephoneEntreprise(e.target.value)}
-                className="w-full mt-1 border border-stone-300 rounded-lg py-2.5 px-3 text-sm"
-                placeholder="+229 ..."
-              />
-            </div>
-          </div>
-
-          <hr className="border-stone-100" />
-
-          <SelecteurSecteurActivite
-            valeur={secteurActivite}
-            onChange={setSecteurActivite}
-            valeurAutre={secteurActiviteAutre}
-            onChangeAutre={setSecteurActiviteAutre}
-          />
-
-          <hr className="border-stone-100" />
-
-          <div>
-            <label className="text-xs font-medium text-stone-500">Ton nom (gérant)</label>
-            <input
-              required
-              value={nomGerant}
-              onChange={(e) => setNomGerant(e.target.value)}
-              className="w-full mt-1 border border-stone-300 rounded-lg py-2.5 px-3 text-sm"
-            />
-          </div>
-
-          <div>
-            <label className="text-xs font-medium text-stone-500">Email</label>
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full mt-1 border border-stone-300 rounded-lg py-2.5 px-3 text-sm"
-            />
-          </div>
-
-          <div>
-            <label className="text-xs font-medium text-stone-500">Mot de passe</label>
-            <input
-              type="password"
-              required
-              minLength={6}
-              value={motDePasse}
-              onChange={(e) => setMotDePasse(e.target.value)}
-              className="w-full mt-1 border border-stone-300 rounded-lg py-2.5 px-3 text-sm"
-              placeholder="6 caractères minimum"
-            />
-          </div>
-
-          {erreur && (
-            <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-              {erreur}
-            </p>
-          )}
-
-          <button
-            type="submit"
-            disabled={enCours}
-            className="w-full bg-amber-500 hover:bg-amber-600 text-stone-900 font-semibold py-3 rounded-xl transition-colors disabled:opacity-60"
-          >
-            {enCours ? "Création..." : "Créer mon entreprise"}
-          </button>
-
-          <p className="text-center text-xs text-stone-400">
-            Déjà un compte ? <Link to="/login" className="text-amber-600 font-medium">Se connecter</Link>
+        {erreur && (
+          <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+            {erreur}
           </p>
-        </form>
-      </div>
-    </div>
+        )}
+
+        <button
+          type="submit"
+          disabled={enCours}
+          className="w-full bg-amber-500 hover:bg-amber-600 text-stone-900 font-semibold py-3 rounded-xl transition-colors disabled:opacity-60"
+        >
+          {enCours ? "Création..." : "Créer mon entreprise"}
+        </button>
+
+        <p className="text-center text-xs text-stone-400">
+          Déjà un compte ? <Link to="/login" className="text-amber-600 font-medium">Se connecter</Link>
+        </p>
+      </form>
+    </AuthLayout>
   );
 }
 
-function FontImport() {
-  return (
-    <style>{`
-      @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Inter:wght@400;500;600;700&display=swap');
-      .font-display { font-family: 'Barlow Condensed', sans-serif; }
-      .font-body { font-family: 'Inter', sans-serif; }
-    `}</style>
-  );
-}

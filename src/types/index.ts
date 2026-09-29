@@ -71,6 +71,9 @@ export interface Entreprise {
   // (secteur_activite), ex : une quincaillerie qui gère aussi un dépôt
   // de boissons. Toujours au moins secteur_activite dedans.
   secteurs_actifs: SecteurActivite[];
+  // Preuve d'acceptation des CGU Akweo par le gérant (horodatage serveur).
+  cgu_version?: string | null;
+  cgu_acceptees_le?: string | null;
 }
 
 export interface Utilisateur {
@@ -374,7 +377,19 @@ export interface Tontine {
   date_atteinte: string | null;
   utilisateur_id: string | null;
   created_at: string;
+  // Snapshot figé côté serveur des conditions acceptées par le client.
+  conditions_acceptees?: boolean;
+  conditions_version?: number | null;
+  conditions_texte?: string | null;
+  conditions_acceptees_le?: string | null;
   client?: { nom: string; telephone: string | null };
+}
+
+export interface ConditionsTontine {
+  entreprise_id: string;
+  contenu: string;
+  version: number;
+  updated_at: string;
 }
 
 export interface CotisationTontine {
@@ -467,4 +482,106 @@ export interface TableauDecisionnel {
   argent_immobilise: number;
   nombre_ruptures: number;
   nombre_stock_dormant: number;
+}
+
+// =====================================================================
+// CLÔTURES (journée / mois / année)
+// =====================================================================
+
+export type TypeCloture = "jour" | "mois" | "annee";
+
+interface VentilationModes {
+  nombre: number;
+  total: number;
+  especes: number;
+  mobile_money: number;
+}
+
+export interface SyntheseCloture {
+  periode: { debut: string; fin: string; fuseau: string };
+  ventes: {
+    nombre: number;
+    nombre_annulees: number;
+    total: number;
+    especes: number;
+    mobile_money: number;
+    a_credit: number;
+  };
+  avoirs: VentilationModes & { credit: number };
+  encaissements_creances: VentilationModes;
+  tontine: VentilationModes & { tontines_soldees: number };
+  depenses: VentilationModes & { virement: number; par_categorie: Record<string, number> };
+  personnel: VentilationModes & { virement: number };
+  consignes: { rachats: number; casiers_sortis: number; casiers_retournes: number };
+  casses: number;
+  tresorerie: {
+    especes: { entrees: number; sorties: number; flux: number };
+    mobile_money: { entrees: number; sorties: number; flux: number };
+  };
+  resultat: {
+    chiffre_affaires_net: number;
+    marge_brute: number;
+    charges: number;
+    pertes: number;
+    resultat_estime: number;
+  };
+  // Journée (avant clôture)
+  fond_ouverture?: number | null;
+  premiere_cloture?: boolean;
+  // Mois / année
+  etat?: {
+    creances_clients: number;
+    epargne_tontine: number;
+    valeur_stock_achat: number;
+    top_articles: { designation: string; quantite: number; montant: number }[];
+    releve_le: string;
+  };
+  journees?: { nombre: number; ecart_total: number };
+  par_mois?: { mois: string; chiffre_affaires_net: number; resultat_estime: number }[];
+}
+
+export interface Cloture {
+  id: string;
+  entreprise_id: string;
+  type_cloture: TypeCloture;
+  date_debut: string;
+  date_fin: string;
+  statut: "validee" | "annulee";
+  fond_ouverture: number | null;
+  especes_theoriques: number | null;
+  especes_comptees: number | null;
+  ecart_especes: number | null;
+  fond_conserve: number | null;
+  especes_retirees: number | null;
+  mobile_money_theorique: number | null;
+  chiffre_affaires_net: number;
+  marge_brute: number;
+  charges: number;
+  resultat_estime: number;
+  donnees: SyntheseCloture;
+  commentaire: string | null;
+  cloture_par: string | null;
+  cloture_le: string;
+  annulee_le: string | null;
+  motif_annulation: string | null;
+  auteur?: { nom: string } | null;
+}
+
+export interface ApercuCloture {
+  cloture: Cloture | null;
+  synthese: SyntheseCloture;
+  raison_non_cloturable?: string | null;
+}
+
+export interface EtatClotures {
+  aujourdhui: string;
+  derniere_journee: string | null;
+  dernier_mois: string | null;
+  derniere_annee: string | null;
+  journees_en_attente: string[];
+  prochaine_journee: string | null;
+  prochain_mois: string | null;
+  prochain_mois_raison: string | null;
+  prochaine_annee: string | null;
+  prochaine_annee_raison: string | null;
 }

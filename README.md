@@ -80,6 +80,10 @@ suite.
      que soit la façon de le coller — chaque `CREATE INDEX` prend donc
      un court verrou en écriture pendant sa construction, sans
      conséquence au volume de données actuel)
+   - `migration_cgu_conditions_tontine.sql` — acceptation des CGU,
+     conditions de tontine du gérant, durcissement des RPC tontine
+   - `migration_clotures.sql` — clôtures journalière / mensuelle /
+     annuelle, comptage de caisse et verrou des périodes clôturées
 
    ⚠️ Les 3 migrations `ledger_creances` / `annulation_avoir` /
    `dashboard_decisionnel` touchent la fonction `creer_vente` en cascade

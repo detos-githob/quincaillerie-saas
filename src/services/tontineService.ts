@@ -1,5 +1,5 @@
 import { supabase } from "../lib/supabaseClient";
-import type { CotisationTontine, LignePanierTontine, Tontine } from "../types";
+import type { ConditionsTontine, CotisationTontine, LignePanierTontine, Tontine } from "../types";
 
 export async function listerTontines(): Promise<Tontine[]> {
   const { data, error } = await supabase
@@ -25,7 +25,8 @@ export async function creerTontine(
   entrepriseId: string,
   clientId: string,
   plafond: number,
-  utilisateurId: string | null
+  utilisateurId: string | null,
+  conditionsAcceptees: boolean
 ): Promise<Tontine> {
   const { data, error } = await supabase
     .from("tontines")
@@ -36,6 +37,9 @@ export async function creerTontine(
       montant_cumule: 0,
       statut: "en_cours",
       utilisateur_id: utilisateurId,
+      // Le serveur refuse l'insertion si false, puis fige lui-même le
+      // texte, la version et l'horodatage des conditions acceptées.
+      conditions_acceptees: conditionsAcceptees,
     })
     .select("*, client:clients(nom, telephone)")
     .single();
@@ -130,4 +134,30 @@ export async function recupererProduitsTontine(
     p_utilisateur_id: utilisateurId,
   });
   if (error) throw error;
+}
+
+// =====================================================================
+// CONDITIONS DE TONTINE (définies par le gérant)
+// =====================================================================
+
+export const LONGUEUR_MIN_CONDITIONS = 50;
+export const LONGUEUR_MAX_CONDITIONS = 10000;
+
+export async function obtenirConditionsTontine(): Promise<ConditionsTontine | null> {
+  const { data, error } = await supabase
+    .from("conditions_tontine")
+    .select("entreprise_id, contenu, version, updated_at")
+    .maybeSingle();
+  if (error) throw error;
+  return (data as ConditionsTontine) ?? null;
+}
+
+/**
+ * Enregistre les conditions (gérant uniquement, vérifié côté serveur).
+ * Renvoie le numéro de version en vigueur après enregistrement.
+ */
+export async function definirConditionsTontine(contenu: string): Promise<number> {
+  const { data, error } = await supabase.rpc("definir_conditions_tontine", { p_contenu: contenu });
+  if (error) throw error;
+  return data as number;
 }

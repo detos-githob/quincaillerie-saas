@@ -24,6 +24,8 @@ import { useAuth } from "../../hooks/useAuth";
 import { listerClients, clientsAvecCreanceEnRetard } from "../../services/clientsService";
 import { totalSortiesArgentDuMois } from "../../services/depensesService";
 import { obtenirTableauDecisionnel, listerStockDormant } from "../../services/decisionnelService";
+import { RappelClotures } from "../clotures/RappelClotures";
+import { peutEcrire as peutEcrireModule } from "../../lib/permissions";
 import { calculerStatutAbonnement, STYLES_STATUT_ABONNEMENT, niveauAcces } from "../../lib/abonnement";
 import type { Alerte, Article, Client, TableauDecisionnel } from "../../types";
 
@@ -40,7 +42,7 @@ const ICONES_ALERTE: Record<string, typeof Package> = {
 };
 
 export function DashboardPage() {
-  const { entreprise, utilisateur } = useAuth();
+  const { entreprise, utilisateur, permissions } = useAuth();
   const peutVoirMarge = utilisateur?.role !== "vendeur";
   const [chargement, setChargement] = useState(true);
   const [ventes7Jours, setVentes7Jours] = useState<{ jour: string; montant: number }[]>([]);
@@ -290,7 +292,7 @@ export function DashboardPage() {
                     <Link
                       to="/mon-abonnement"
                       onClick={() => setClocheOuverte(false)}
-                      className="block text-center bg-stone-900 text-white text-sm font-medium py-2 rounded-lg"
+                      className="block text-center bg-navy text-white text-sm font-medium py-2 rounded-lg"
                     >
                       Gérer mon abonnement
                     </Link>
@@ -303,6 +305,8 @@ export function DashboardPage() {
           </div>
         )}
       </div>
+
+      {peutEcrireModule(permissions, "clotures") && <RappelClotures />}
 
       {/* Bandeau santé */}
       <div

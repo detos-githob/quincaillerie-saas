@@ -44,7 +44,7 @@ export function EquipePage() {
         <button
           onClick={() => setModaleOuverte(true)}
           disabled={plafondAtteint}
-          className="flex items-center gap-1.5 bg-stone-900 text-white text-sm font-medium px-3.5 py-2 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed"
+          className="flex items-center gap-1.5 bg-navy text-white text-sm font-medium px-3.5 py-2 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <UserPlus size={16} /> Ajouter un membre
         </button>
@@ -166,7 +166,7 @@ function ModaleGestionAcces({
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center px-4">
-      <div className="absolute inset-0 bg-stone-900/40" onClick={onFerme} />
+      <div className="absolute inset-0 bg-navy/40" onClick={onFerme} />
       <div className="relative bg-white rounded-2xl w-full max-w-lg max-h-[85vh] flex flex-col">
         <div className="flex items-center justify-between px-5 pt-5 pb-3">
           <div>
@@ -217,7 +217,7 @@ function ModaleGestionAcces({
           <button
             onClick={gererEnregistrement}
             disabled={enCours || chargement}
-            className="w-full bg-stone-900 text-white font-semibold py-2.5 rounded-xl disabled:opacity-60"
+            className="w-full bg-navy text-white font-semibold py-2.5 rounded-xl disabled:opacity-60"
           >
             {enCours ? "Enregistrement..." : "Enregistrer les accès"}
           </button>
@@ -260,7 +260,7 @@ function ModaleNouveauMembre({ onFerme, onCree }: { onFerme: () => void; onCree:
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center px-4">
-      <div className="absolute inset-0 bg-stone-900/40" onClick={onFerme} />
+      <div className="absolute inset-0 bg-navy/40" onClick={onFerme} />
       <form onSubmit={gererSoumission} className="relative bg-white rounded-2xl w-full max-w-sm p-5 space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="font-display text-xl font-bold text-stone-900">Nouveau membre</h2>
