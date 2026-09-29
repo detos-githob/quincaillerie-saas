@@ -29,7 +29,7 @@ select cron.schedule(
         url := 'https://pinepbsrsjdroijrdxzo.supabase.co/functions/v1/verifier-abonnements-expiration',
         headers := jsonb_build_object(
             'Content-Type', 'application/json',
-            'x-cron-secret', 'mon_saas_changera_ma_situation_financiere'
+            'x-cron-secret', 'REMPLACER_PAR_CRON_SECRET_DEPLOYE'
         ),
         body := '{}'::jsonb
     );

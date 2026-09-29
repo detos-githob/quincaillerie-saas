@@ -73,11 +73,13 @@ suite.
      pour chaque membre de l'équipe et chaque module, un accès
      aucun/lecture/écriture (au-delà du simple rôle)
    - `migration_scalabilite_index.sql` — index composites pour tenir la
-     charge à grande échelle. **À exécuter instruction par instruction**
-     (voir l'avertissement en tête du fichier — `CREATE INDEX
-     CONCURRENTLY` ne peut pas tourner dans une transaction, or le SQL
-     Editor de Supabase exécute tout le contenu collé comme une seule
-     transaction)
+     charge à grande échelle. S'exécute normalement, en un seul bloc,
+     comme les autres migrations (pas de `CONCURRENTLY` : le SQL Editor
+     de Supabase exécute toujours son contenu dans une transaction
+     implicite, ce qui rend `CONCURRENTLY` inutilisable là-bas quelle
+     que soit la façon de le coller — chaque `CREATE INDEX` prend donc
+     un court verrou en écriture pendant sa construction, sans
+     conséquence au volume de données actuel)
 
    ⚠️ Les 3 migrations `ledger_creances` / `annulation_avoir` /
    `dashboard_decisionnel` touchent la fonction `creer_vente` en cascade

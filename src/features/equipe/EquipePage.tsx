@@ -5,6 +5,7 @@ import { listerEquipe, creerMembreEquipe } from "../../services/equipeService";
 import { chargerSurchargesUtilisateur, definirPermissionsUtilisateur } from "../../services/permissionsService";
 import { useAuth } from "../../hooks/useAuth";
 import { limiteEquipe } from "../../lib/abonnement";
+import { validerMotDePasse } from "../../lib/security";
 import {
   LABELS_ROLE,
   LABELS_MODULE,
@@ -236,8 +237,15 @@ function ModaleNouveauMembre({ onFerme, onCree }: { onFerme: () => void; onCree:
 
   async function gererSoumission(e: FormEvent) {
     e.preventDefault();
-    setEnCours(true);
     setErreur(null);
+
+    const erreurMotDePasse = validerMotDePasse(motDePasse);
+    if (erreurMotDePasse) {
+      setErreur(erreurMotDePasse);
+      return;
+    }
+
+    setEnCours(true);
     try {
       await creerMembreEquipe(nom, email, motDePasse, role);
       setSucces(true);

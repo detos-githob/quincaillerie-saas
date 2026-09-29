@@ -9,14 +9,20 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+const APP_URL = Deno.env.get("APP_URL") || "https://quincallerie.denistossou.com";
 const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": APP_URL,
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Vary": "Origin",
 };
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: CORS_HEADERS });
+  }
+  if (req.method !== "POST") {
+    return reponseErreur("Méthode non autorisée.", 405);
   }
 
   try {
@@ -24,6 +30,9 @@ Deno.serve(async (req: Request) => {
 
     if (!email || !motDePasse || !nom || !role) {
       return reponseErreur("Champs manquants.", 400);
+    }
+    if (motDePasse.length < 12 || !/[A-Z]/.test(motDePasse) || !/[a-z]/.test(motDePasse) || !/[0-9]/.test(motDePasse) || !/[!@#$%^&*()_+\-=[\]{};':"\\|<>?,./`~]/.test(motDePasse)) {
+      return reponseErreur("Mot de passe trop faible.", 400);
     }
     if (!["vendeur", "comptable", "magasinier"].includes(role)) {
       return reponseErreur("Rôle invalide.", 400);
@@ -123,7 +132,8 @@ Deno.serve(async (req: Request) => {
       headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
     });
   } catch (e) {
-    return reponseErreur(String(e), 500);
+    console.error("Erreur interne creer-utilisateur-equipe", e);
+    return reponseErreur("Erreur interne.", 500);
   }
 });
 

@@ -3,6 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { supabase } from "../../lib/supabaseClient";
 import { SelecteurSecteurActivite } from "./SelecteurSecteurActivite";
+import { validerMotDePasse } from "../../lib/security";
 import type { SecteurActivite } from "../../types";
 
 export function SignupPage() {
@@ -25,6 +26,13 @@ export function SignupPage() {
   async function gererSoumission(e: FormEvent) {
     e.preventDefault();
     setErreur(null);
+
+    const erreurMotDePasse = validerMotDePasse(motDePasse);
+    if (erreurMotDePasse) {
+      setErreur(erreurMotDePasse);
+      return;
+    }
+
     setEnCours(true);
 
     try {
