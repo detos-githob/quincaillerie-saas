@@ -46,7 +46,7 @@ export function InventairePage() {
           <button
             onClick={gererNouvelInventaire}
             disabled={demarrageEnCours}
-            className="flex items-center gap-1.5 bg-stone-900 text-white text-sm font-medium px-3.5 py-2 rounded-lg disabled:opacity-60"
+            className="flex items-center gap-1.5 bg-navy text-white text-sm font-medium px-3.5 py-2 rounded-lg disabled:opacity-60"
           >
             <Plus size={16} /> {demarrageEnCours ? "Démarrage..." : "Nouvel inventaire"}
           </button>

@@ -88,6 +88,27 @@ export function TontineDetailPage() {
       </div>
       <p className="text-sm text-stone-500 mb-3">{tontine.client?.telephone || "—"}</p>
 
+      {tontine.conditions_acceptees && tontine.conditions_texte ? (
+        <details className="bg-white border border-stone-200 rounded-xl mb-3 group">
+          <summary className="cursor-pointer list-none px-4 py-3 text-sm text-stone-600 flex items-center justify-between">
+            <span>
+              Conditions acceptées le{" "}
+              {tontine.conditions_acceptees_le
+                ? new Date(tontine.conditions_acceptees_le).toLocaleDateString("fr-FR")
+                : "—"}{" "}
+              (version {tontine.conditions_version})
+            </span>
+            <span className="text-xs text-amber-600 font-medium group-open:hidden">Afficher</span>
+            <span className="text-xs text-amber-600 font-medium hidden group-open:inline">Masquer</span>
+          </summary>
+          <p className="px-4 pb-4 text-sm leading-relaxed text-stone-700 whitespace-pre-line border-t border-stone-100 pt-3">
+            {tontine.conditions_texte}
+          </p>
+        </details>
+      ) : (
+        <p className="text-xs text-stone-400 mb-3">Tontine ouverte avant la mise en place des conditions générales.</p>
+      )}
+
       <div className="bg-white border border-stone-200 rounded-xl p-4 mb-5">
         <div className="w-full h-3 bg-stone-100 rounded-full overflow-hidden mb-2">
           <div
@@ -271,7 +292,7 @@ function ModaleCotisation({
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center px-4">
-      <div className="absolute inset-0 bg-stone-900/40" onClick={onFerme} />
+      <div className="absolute inset-0 bg-navy/40" onClick={onFerme} />
       <div className="relative bg-white rounded-2xl w-full max-w-sm p-5 space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="font-display text-xl font-bold text-stone-900">Enregistrer une cotisation</h2>
@@ -355,7 +376,7 @@ function ModaleAjoutArticle({
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center px-4">
-      <div className="absolute inset-0 bg-stone-900/40" onClick={onFerme} />
+      <div className="absolute inset-0 bg-navy/40" onClick={onFerme} />
       <div className="relative bg-white rounded-2xl w-full max-w-sm p-5 space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="font-display text-xl font-bold text-stone-900">Ajouter au panier</h2>

@@ -31,7 +31,7 @@ export function OffresPage() {
               key={p}
               onClick={() => setPeriodicite(p)}
               className={`px-4 py-1.5 rounded-full text-sm font-medium capitalize transition-colors ${
-                periodicite === p ? "bg-stone-900 text-white" : "text-stone-600"
+                periodicite === p ? "bg-navy text-white" : "text-stone-600"
               }`}
             >
               {p}
@@ -81,7 +81,7 @@ export function OffresPage() {
                 className={`w-full mt-5 py-2.5 rounded-xl font-semibold transition-colors ${
                   populaire
                     ? "bg-amber-500 hover:bg-amber-600 text-stone-900"
-                    : "bg-stone-900 hover:bg-stone-800 text-white"
+                    : "bg-navy hover:bg-navy-800 text-white"
                 }`}
               >
                 Souscrire

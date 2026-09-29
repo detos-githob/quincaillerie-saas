@@ -1,8 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useSearchParams, useNavigate, Navigate } from "react-router-dom";
-import { ArrowLeft, ShieldCheck } from "lucide-react";
+import { ArrowLeft, CheckCircle2, ShieldCheck, Smartphone, XCircle } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
-import { trouverOffre, calculerMontant, confirmerPaiement } from "../../services/abonnementService";
+import {
+  trouverOffre,
+  calculerMontant,
+  confirmerPaiement,
+  formaterTelephoneBenin,
+  initierPaiementMomo,
+  statutPaiementMomo,
+} from "../../services/abonnementService";
 
 declare global {
   interface Window {
@@ -12,6 +19,18 @@ declare global {
   }
 }
 
+const KKIAPAY_DISPONIBLE = !!import.meta.env.VITE_KKIAPAY_PUBLIC_KEY;
+const MOMO_SANDBOX = import.meta.env.VITE_MOMO_SANDBOX === "true";
+const INTERVALLE_SONDAGE_MS = 4000;
+const DUREE_SONDAGE_MS = 3 * 60 * 1000;
+
+type Methode = "momo" | "kkiapay";
+type Etape =
+  | { nom: "saisie" }
+  | { nom: "attente"; paiementId: string; telephone: string; depuis: number; longue: boolean }
+  | { nom: "reussi"; dateExpiration: string | null }
+  | { nom: "echoue"; raison: string };
+
 function formatFCFA(montant: number): string {
   return montant.toLocaleString("fr-FR") + " FCFA";
 }
@@ -20,14 +39,300 @@ export function PaiementPage() {
   const { utilisateur, entreprise, rafraichirProfil } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [scriptCharge, setScriptCharge] = useState(false);
-  const [enVerification, setEnVerification] = useState(false);
-  const [erreur, setErreur] = useState<string | null>(null);
+  const [methode, setMethode] = useState<Methode>("momo");
 
   const planId = searchParams.get("plan") as "starter" | "business" | null;
   const periode = (searchParams.get("periode") as "mensuel" | "annuel") || "mensuel";
   const offre = planId ? trouverOffre(planId) : undefined;
   const montant = offre ? calculerMontant(offre, periode) : 0;
+
+  if (utilisateur && utilisateur.role !== "gerant") return <Navigate to="/" replace />;
+  if (!offre) return <Navigate to="/offres" replace />;
+
+  return (
+    <div className="max-w-md mx-auto px-4 py-8">
+      <button onClick={() => navigate("/offres")} className="flex items-center gap-1.5 text-sm text-stone-500 mb-4">
+        <ArrowLeft size={15} /> Changer d'offre
+      </button>
+
+      <div className="bg-white border border-stone-200 rounded-2xl p-5">
+        <p className="text-xs font-medium text-stone-500">Récapitulatif</p>
+        <p className="font-display text-2xl font-bold text-stone-900 mt-1">
+          {offre.nom} — {periode === "annuel" ? "annuel" : "mensuel"}
+        </p>
+        <p className="font-display text-4xl font-bold text-amber-600 mt-3">{formatFCFA(montant)}</p>
+
+        {MOMO_SANDBOX && (
+          <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-4">
+            Mode test MTN : aucun argent réel n'est débité. Utilise un numéro de test MTN.
+          </p>
+        )}
+
+        {KKIAPAY_DISPONIBLE && (
+          <div className="grid grid-cols-2 gap-2 mt-5" role="radiogroup" aria-label="Moyen de paiement">
+            {(
+              [
+                ["momo", "MTN MoMo"],
+                ["kkiapay", "Moov, carte…"],
+              ] as const
+            ).map(([valeur, label]) => (
+              <button
+                key={valeur}
+                role="radio"
+                aria-checked={methode === valeur}
+                onClick={() => setMethode(valeur)}
+                className={`py-2.5 rounded-xl text-sm font-medium border ${
+                  methode === valeur ? "bg-navy text-white border-navy" : "bg-white text-stone-600 border-stone-300"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {methode === "momo" ? (
+          <PaiementMomo
+            plan={offre.id}
+            periode={periode}
+            montant={montant}
+            telephoneInitial={entreprise?.telephone ?? ""}
+            onReussi={async () => {
+              await rafraichirProfil();
+            }}
+          />
+        ) : (
+          <PaiementKkiapay
+            montant={montant}
+            plan={offre.id}
+            periode={periode}
+            onReussi={async () => {
+              await rafraichirProfil();
+              navigate("/mon-abonnement");
+            }}
+          />
+        )}
+
+        <p className="flex items-center justify-center gap-1.5 text-xs text-stone-400 mt-4">
+          <ShieldCheck size={13} /> Paiement vérifié par nos serveurs auprès de l'opérateur
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// =====================================================================
+// MTN MoMo : demande envoyée sur le téléphone, puis suivi du statut
+// =====================================================================
+
+function PaiementMomo({
+  plan,
+  periode,
+  montant,
+  telephoneInitial,
+  onReussi,
+}: {
+  plan: "starter" | "business";
+  periode: "mensuel" | "annuel";
+  montant: number;
+  telephoneInitial: string;
+  onReussi: () => Promise<void>;
+}) {
+  const navigate = useNavigate();
+  const [telephone, setTelephone] = useState(telephoneInitial);
+  const [etape, setEtape] = useState<Etape>({ nom: "saisie" });
+  const [enCours, setEnCours] = useState(false);
+  const [erreur, setErreur] = useState<string | null>(null);
+  const actif = useRef(true);
+  const onReussiRef = useRef(onReussi);
+
+  useEffect(() => {
+    onReussiRef.current = onReussi;
+  }, [onReussi]);
+
+  useEffect(() => {
+    actif.current = true;
+    return () => {
+      actif.current = false;
+    };
+  }, []);
+
+  // Sondage du statut tant que la demande est en attente.
+  useEffect(() => {
+    if (etape.nom !== "attente" || etape.longue) return;
+    const minuterie = setTimeout(async () => {
+      try {
+        const r = await statutPaiementMomo(etape.paiementId);
+        if (!actif.current) return;
+        if (r.statut === "reussi") {
+          await onReussiRef.current();
+          setEtape({ nom: "reussi", dateExpiration: r.dateExpiration });
+        } else if (r.statut === "echoue" || r.statut === "expire") {
+          setEtape({ nom: "echoue", raison: r.raison || "Le paiement n'a pas abouti." });
+        } else {
+          const longue = Date.now() - etape.depuis > DUREE_SONDAGE_MS;
+          setEtape({ ...etape, longue });
+        }
+      } catch {
+        // Coupure réseau passagère : on réessaie au tour suivant.
+        if (actif.current) setEtape({ ...etape });
+      }
+    }, INTERVALLE_SONDAGE_MS);
+    return () => clearTimeout(minuterie);
+  }, [etape]);
+
+  const telephoneFormate = MOMO_SANDBOX ? telephone.replace(/\D/g, "") || null : formaterTelephoneBenin(telephone);
+
+  async function payer(e: FormEvent) {
+    e.preventDefault();
+    setErreur(null);
+    if (!telephoneFormate) {
+      setErreur("Saisis ton numéro MTN à 10 chiffres (01 XX XX XX XX).");
+      return;
+    }
+    setEnCours(true);
+    try {
+      const { paiementId } = await initierPaiementMomo(plan, periode, telephone);
+      setEtape({ nom: "attente", paiementId, telephone: telephoneFormate, depuis: Date.now(), longue: false });
+    } catch (err) {
+      setErreur((err as Error).message);
+    } finally {
+      setEnCours(false);
+    }
+  }
+
+  if (etape.nom === "attente") {
+    return (
+      <div className="mt-5 text-center space-y-3" aria-live="polite">
+        <span className="relative inline-flex items-center justify-center w-16 h-16 rounded-full bg-amber-50">
+          {!etape.longue && <span className="absolute inset-0 rounded-full bg-amber-200 animate-ping opacity-40" />}
+          <Smartphone size={28} className="relative text-amber-600" />
+        </span>
+        <p className="font-medium text-stone-900">Valide le paiement sur ton téléphone</p>
+        <p className="text-sm text-stone-600">
+          Une demande de <strong>{formatFCFA(montant)}</strong> a été envoyée au <strong>{etape.telephone}</strong>.
+          Confirme-la avec ton code secret Mobile Money.
+        </p>
+        <p className="text-xs text-stone-400">
+          Pas de notification ? Ouvre ton application ou ton menu MoMo : la demande apparaît parmi les paiements à
+          approuver.
+        </p>
+        {etape.longue ? (
+          <div className="space-y-2 pt-1">
+            <p className="text-sm text-stone-600">
+              Toujours pas de validation. Si tu confirmes plus tard, ton abonnement sera activé automatiquement.
+            </p>
+            <button
+              onClick={() => setEtape({ ...etape, depuis: Date.now(), longue: false })}
+              className="w-full border border-stone-300 text-stone-700 font-medium py-2.5 rounded-xl text-sm"
+            >
+              Vérifier à nouveau
+            </button>
+          </div>
+        ) : (
+          <p className="text-xs text-stone-400">En attente de confirmation…</p>
+        )}
+      </div>
+    );
+  }
+
+  if (etape.nom === "reussi") {
+    return (
+      <div className="mt-5 text-center space-y-3">
+        <CheckCircle2 size={40} className="mx-auto text-emerald-600" />
+        <p className="font-display text-xl font-bold text-stone-900">Paiement confirmé</p>
+        {etape.dateExpiration && (
+          <p className="text-sm text-stone-600">
+            Ton abonnement est actif jusqu'au{" "}
+            <strong>{new Date(etape.dateExpiration + "T00:00:00").toLocaleDateString("fr-FR")}</strong>.
+          </p>
+        )}
+        <button
+          onClick={() => navigate("/mon-abonnement")}
+          className="w-full bg-amber-500 hover:bg-amber-600 text-stone-900 font-semibold py-3 rounded-xl"
+        >
+          Voir mon abonnement
+        </button>
+      </div>
+    );
+  }
+
+  if (etape.nom === "echoue") {
+    return (
+      <div className="mt-5 text-center space-y-3">
+        <XCircle size={40} className="mx-auto text-red-500" />
+        <p className="font-medium text-stone-900">Le paiement n'a pas abouti</p>
+        <p className="text-sm text-stone-600">{etape.raison}</p>
+        <p className="text-xs text-stone-400">Aucun montant n'a été prélevé pour cette demande.</p>
+        <button
+          onClick={() => setEtape({ nom: "saisie" })}
+          className="w-full bg-amber-500 hover:bg-amber-600 text-stone-900 font-semibold py-3 rounded-xl"
+        >
+          Réessayer
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={payer} className="mt-5 space-y-3">
+      <label className="block">
+        <span className="text-xs font-medium text-stone-500">Numéro MTN Mobile Money à débiter</span>
+        <input
+          type="tel"
+          inputMode="numeric"
+          autoComplete="tel"
+          required
+          value={telephone}
+          onChange={(e) => setTelephone(e.target.value)}
+          placeholder={MOMO_SANDBOX ? "Numéro de test MTN" : "01 XX XX XX XX"}
+          className="w-full mt-1 border border-stone-300 rounded-lg py-2.5 px-3 text-lg tracking-wide tabular-nums focus:outline-none focus:ring-2 focus:ring-amber-500"
+        />
+        {!MOMO_SANDBOX && telephone && telephoneFormate && (
+          <span className="text-xs text-stone-400 mt-1 block">Numéro : +229 {telephoneFormate}</span>
+        )}
+      </label>
+
+      {erreur && (
+        <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{erreur}</p>
+      )}
+
+      <button
+        type="submit"
+        disabled={enCours}
+        className="w-full bg-amber-500 hover:bg-amber-600 text-stone-900 font-semibold py-3.5 rounded-xl disabled:opacity-60"
+      >
+        {enCours ? "Envoi de la demande…" : `Payer ${formatFCFA(montant)}`}
+      </button>
+    </form>
+  );
+}
+
+// =====================================================================
+// Kkiapay (Moov Money, carte…) — flux existant
+// =====================================================================
+
+function PaiementKkiapay({
+  montant,
+  plan,
+  periode,
+  onReussi,
+}: {
+  montant: number;
+  plan: "starter" | "business";
+  periode: "mensuel" | "annuel";
+  onReussi: () => Promise<void>;
+}) {
+  const { entreprise } = useAuth();
+  const [scriptCharge, setScriptCharge] = useState(false);
+  const [enVerification, setEnVerification] = useState(false);
+  const [erreur, setErreur] = useState<string | null>(null);
+  // Le script Kkiapay ne permet pas de retirer un écouteur : on les
+  // enregistre UNE fois et on lit les valeurs à jour via cette référence.
+  const contexte = useRef({ entreprise, plan, periode, onReussi });
+  useEffect(() => {
+    contexte.current = { entreprise, plan, periode, onReussi };
+  }, [entreprise, plan, periode, onReussi]);
 
   useEffect(() => {
     const script = document.createElement("script");
@@ -44,16 +349,16 @@ export function PaiementPage() {
     if (!scriptCharge || !window.addSuccessListener || !window.addFailedListener) return;
 
     window.addSuccessListener(async (response) => {
-      if (!entreprise || !offre) return;
+      const { entreprise, plan, periode, onReussi } = contexte.current;
+      if (!entreprise) return;
       setEnVerification(true);
       setErreur(null);
       try {
-        await confirmerPaiement(response.transactionId, entreprise.id, offre.id, periode);
-        await rafraichirProfil();
-        navigate("/mon-abonnement");
-      } catch (e: any) {
+        await confirmerPaiement(response.transactionId, entreprise.id, plan, periode);
+        await onReussi();
+      } catch (e) {
         setErreur(
-          e.message ||
+          (e as Error).message ||
             "Le paiement a été reçu mais n'a pas pu être confirmé automatiquement. Contacte le support avec ta référence de transaction : " +
               response.transactionId
         );
@@ -65,65 +370,32 @@ export function PaiementPage() {
     window.addFailedListener(() => {
       setErreur("Le paiement a échoué ou a été annulé. Réessaie quand tu veux.");
     });
-  }, [scriptCharge, entreprise, offre, periode, navigate, rafraichirProfil]);
-
-  if (utilisateur && utilisateur.role !== "gerant") {
-    return <Navigate to="/" replace />;
-  }
-
-  if (!offre) {
-    return <Navigate to="/offres" replace />;
-  }
+  }, [scriptCharge]);
 
   function ouvrirWidget() {
-    if (!window.openKkiapayWidget || !offre) return;
+    if (!window.openKkiapayWidget) return;
     window.openKkiapayWidget({
       amount: montant,
       api_key: import.meta.env.VITE_KKIAPAY_PUBLIC_KEY,
       sandbox: import.meta.env.VITE_KKIAPAY_SANDBOX === "true",
       phone: entreprise?.telephone || "",
-      data: JSON.stringify({ entrepriseId: entreprise?.id, plan: offre.id, periode }),
+      data: JSON.stringify({ entrepriseId: entreprise?.id, plan, periode }),
     });
   }
 
   return (
-    <div className="max-w-md mx-auto px-4 py-8">
+    <div className="mt-5">
+      {erreur && (
+        <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-3">{erreur}</p>
+      )}
       <button
-        onClick={() => navigate("/offres")}
-        className="flex items-center gap-1.5 text-sm text-stone-500 mb-4"
+        onClick={ouvrirWidget}
+        disabled={!scriptCharge || enVerification}
+        className="w-full bg-amber-500 hover:bg-amber-600 text-stone-900 font-semibold py-3.5 rounded-xl disabled:opacity-60"
       >
-        <ArrowLeft size={15} /> Changer d'offre
+        {enVerification ? "Vérification du paiement…" : scriptCharge ? `Payer ${formatFCFA(montant)}` : "Chargement…"}
       </button>
-
-      <div className="bg-white border border-stone-200 rounded-2xl p-5">
-        <p className="text-xs font-medium text-stone-500">Récapitulatif</p>
-        <p className="font-display text-2xl font-bold text-stone-900 mt-1">
-          {offre.nom} — {periode === "annuel" ? "annuel" : "mensuel"}
-        </p>
-        <p className="font-display text-4xl font-bold text-amber-600 mt-3">{formatFCFA(montant)}</p>
-
-        {erreur && (
-          <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mt-4">
-            {erreur}
-          </p>
-        )}
-
-        <button
-          onClick={ouvrirWidget}
-          disabled={!scriptCharge || enVerification}
-          className="w-full mt-5 bg-amber-500 hover:bg-amber-600 text-stone-900 font-semibold py-3.5 rounded-xl disabled:opacity-60"
-        >
-          {enVerification
-            ? "Vérification du paiement..."
-            : scriptCharge
-            ? "Payer avec Mobile Money"
-            : "Chargement..."}
-        </button>
-
-        <p className="flex items-center justify-center gap-1.5 text-xs text-stone-400 mt-3">
-          <ShieldCheck size={13} /> Paiement sécurisé — MTN Mobile Money & Moov Money
-        </p>
-      </div>
+      <p className="text-xs text-stone-400 text-center mt-2">Moov Money, carte bancaire et autres moyens via Kkiapay.</p>
     </div>
   );
 }

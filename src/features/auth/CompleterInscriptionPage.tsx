@@ -4,6 +4,9 @@ import { supabase } from "../../lib/supabaseClient";
 import { useAuth } from "../../hooks/useAuth";
 import { SelecteurSecteurActivite } from "./SelecteurSecteurActivite";
 import type { SecteurActivite } from "../../types";
+import { CGU_VERSION } from "../../lib/legal";
+import { AuthLayout } from "../../components/layout/AuthLayout";
+import { CaseAcceptationCgu } from "./CaseAcceptationCgu";
 
 export function CompleterInscriptionPage() {
   const { session, rafraichirProfil, deconnexion } = useAuth();
@@ -17,6 +20,10 @@ export function CompleterInscriptionPage() {
   const [nomGerant, setNomGerant] = useState("");
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
+  // Acceptation déjà donnée sur le formulaire d'inscription (avant la
+  // confirmation de l'email) : inutile de la redemander.
+  const cguDejaAcceptees = session?.user.user_metadata?.cgu_version === CGU_VERSION;
+  const [cguAcceptees, setCguAcceptees] = useState(cguDejaAcceptees);
 
   if (!session) {
     return <Navigate to="/login" replace />;
@@ -24,8 +31,12 @@ export function CompleterInscriptionPage() {
 
   async function gererSoumission(e: FormEvent) {
     e.preventDefault();
-    setEnCours(true);
     setErreur(null);
+    if (!cguAcceptees) {
+      setErreur("Tu dois accepter les conditions générales pour créer ton entreprise.");
+      return;
+    }
+    setEnCours(true);
     try {
       const { error } = await supabase.rpc("creer_entreprise_et_gerant", {
         p_nom_entreprise: nomEntreprise,
@@ -37,6 +48,11 @@ export function CompleterInscriptionPage() {
       });
       if (error) throw error;
 
+      const { error: erreurCgu } = await supabase.rpc("enregistrer_acceptation_cgu", {
+        p_version: CGU_VERSION,
+      });
+      if (erreurCgu) console.warn("Enregistrement de l'acceptation des CGU impossible :", erreurCgu.message);
+
       await rafraichirProfil();
       navigate("/");
     } catch (e: any) {
@@ -47,89 +63,77 @@ export function CompleterInscriptionPage() {
   }
 
   return (
-    <div className="min-h-screen bg-stone-50 flex items-center justify-center px-4 py-10 font-body">
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Inter:wght@400;500;600;700&display=swap');
-        .font-display { font-family: 'Barlow Condensed', sans-serif; }
-        .font-body { font-family: 'Inter', sans-serif; }
-      `}</style>
-      <div className="w-full max-w-sm">
-        <div className="text-center mb-6">
-          <h1 className="font-display text-3xl font-bold text-stone-900">Encore une étape</h1>
-          <p className="text-stone-500 text-sm mt-1">
-            Ton email est confirmé — crée maintenant ton entreprise
-          </p>
+    <AuthLayout titre="Encore une étape" sousTitre="Ton email est confirmé — crée maintenant ton entreprise">
+      <form onSubmit={gererSoumission} className="bg-white border border-stone-200 rounded-2xl p-6 space-y-4">
+        <div>
+          <label className="text-xs font-medium text-stone-500">Nom de l'entreprise</label>
+          <input
+            required
+            value={nomEntreprise}
+            onChange={(e) => setNomEntreprise(e.target.value)}
+            className="w-full mt-1 border border-stone-300 rounded-lg py-2.5 px-3 text-sm"
+          />
         </div>
 
-        <form onSubmit={gererSoumission} className="bg-white border border-stone-200 rounded-2xl p-6 space-y-4">
+        <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-xs font-medium text-stone-500">Nom de l'entreprise</label>
+            <label className="text-xs font-medium text-stone-500">Régime fiscal</label>
+            <select
+              value={regimeFiscal}
+              onChange={(e) => setRegimeFiscal(e.target.value as "forfait" | "reel")}
+              className="w-full mt-1 border border-stone-300 rounded-lg py-2.5 px-3 text-sm bg-white"
+            >
+              <option value="forfait">Forfait (TPS)</option>
+              <option value="reel">Réel (TVA)</option>
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-stone-500">Téléphone</label>
             <input
-              required
-              value={nomEntreprise}
-              onChange={(e) => setNomEntreprise(e.target.value)}
+              value={telephoneEntreprise}
+              onChange={(e) => setTelephoneEntreprise(e.target.value)}
               className="w-full mt-1 border border-stone-300 rounded-lg py-2.5 px-3 text-sm"
             />
           </div>
+        </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs font-medium text-stone-500">Régime fiscal</label>
-              <select
-                value={regimeFiscal}
-                onChange={(e) => setRegimeFiscal(e.target.value as "forfait" | "reel")}
-                className="w-full mt-1 border border-stone-300 rounded-lg py-2.5 px-3 text-sm bg-white"
-              >
-                <option value="forfait">Forfait (TPS)</option>
-                <option value="reel">Réel (TVA)</option>
-              </select>
-            </div>
-            <div>
-              <label className="text-xs font-medium text-stone-500">Téléphone</label>
-              <input
-                value={telephoneEntreprise}
-                onChange={(e) => setTelephoneEntreprise(e.target.value)}
-                className="w-full mt-1 border border-stone-300 rounded-lg py-2.5 px-3 text-sm"
-              />
-            </div>
-          </div>
+        <SelecteurSecteurActivite
+          valeur={secteurActivite}
+          onChange={setSecteurActivite}
+          valeurAutre={secteurActiviteAutre}
+          onChangeAutre={setSecteurActiviteAutre}
+        />
 
-          <SelecteurSecteurActivite
-            valeur={secteurActivite}
-            onChange={setSecteurActivite}
-            valeurAutre={secteurActiviteAutre}
-            onChangeAutre={setSecteurActiviteAutre}
+        <div>
+          <label className="text-xs font-medium text-stone-500">Ton nom (gérant)</label>
+          <input
+            required
+            value={nomGerant}
+            onChange={(e) => setNomGerant(e.target.value)}
+            className="w-full mt-1 border border-stone-300 rounded-lg py-2.5 px-3 text-sm"
           />
+        </div>
 
-          <div>
-            <label className="text-xs font-medium text-stone-500">Ton nom (gérant)</label>
-            <input
-              required
-              value={nomGerant}
-              onChange={(e) => setNomGerant(e.target.value)}
-              className="w-full mt-1 border border-stone-300 rounded-lg py-2.5 px-3 text-sm"
-            />
-          </div>
+        {!cguDejaAcceptees && <CaseAcceptationCgu cochee={cguAcceptees} onChange={setCguAcceptees} />}
 
-          {erreur && <p className="text-sm text-red-600">{erreur}</p>}
+        {erreur && <p className="text-sm text-red-600">{erreur}</p>}
 
-          <button
-            type="submit"
-            disabled={enCours}
-            className="w-full bg-amber-500 hover:bg-amber-600 text-stone-900 font-semibold py-3 rounded-xl disabled:opacity-60"
-          >
-            {enCours ? "Création..." : "Créer mon entreprise"}
-          </button>
+        <button
+          type="submit"
+          disabled={enCours}
+          className="w-full bg-amber-500 hover:bg-amber-600 text-stone-900 font-semibold py-3 rounded-xl disabled:opacity-60"
+        >
+          {enCours ? "Création..." : "Créer mon entreprise"}
+        </button>
 
-          <button
-            type="button"
-            onClick={deconnexion}
-            className="w-full text-center text-xs text-stone-400"
-          >
-            Se déconnecter
-          </button>
-        </form>
-      </div>
-    </div>
+        <button
+          type="button"
+          onClick={deconnexion}
+          className="w-full text-center text-xs text-stone-400"
+        >
+          Se déconnecter
+        </button>
+      </form>
+    </AuthLayout>
   );
 }

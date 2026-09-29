@@ -1,132 +1,125 @@
-// Supabase Edge Function : verifier-paiement-abonnement
+// Supabase Edge Function : verifier-paiement-abonnement (Kkiapay)
 //
-// Rôle : ne JAMAIS faire confiance au seul événement "succès" du widget
-// Kkiapay côté navigateur (un utilisateur malveillant pourrait le
-// simuler). Cette fonction revérifie la transaction directement auprès
-// de l'API Kkiapay avec la clé privée (jamais exposée au navigateur),
-// puis, seulement si le paiement est confirmé et le montant correct,
-// prolonge l'abonnement de l'entreprise.
+// Ne JAMAIS faire confiance au seul événement « succès » du widget
+// Kkiapay côté navigateur. Cette fonction revérifie la transaction
+// auprès de l'API Kkiapay avec la clé privée, puis :
+//   - enregistre la transaction dans paiements_abonnement : une même
+//     transaction ne peut servir qu'UNE fois (anti-rejeu) ;
+//   - prolonge l'abonnement via appliquer_paiement_abonnement()
+//     (atomique, idempotent).
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const PRIX: Record<string, { mensuel: number; annuel: number }> = {
-  starter: { mensuel: 3000, annuel: 35000 },
-  business: { mensuel: 5000, annuel: 55000 },
-};
+import { enTetesCors, reponseJson } from "../_shared/cors.ts";
+import { prixOffre } from "../_shared/tarifs.ts";
 
 Deno.serve(async (req: Request) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: enTetesCors(req) });
+  if (req.method !== "POST") return reponseJson(req, { error: "Méthode non autorisée." }, 405);
+
   try {
     const { transactionId, entrepriseId, plan, periodicite } = await req.json();
 
-    if (!transactionId || !entrepriseId || !plan || !periodicite) {
-      return reponseErreur("Champs manquants.", 400);
+    if (typeof transactionId !== "string" || !transactionId || transactionId.length > 100 || !entrepriseId) {
+      return reponseJson(req, { error: "Champs manquants." }, 400);
     }
-    if (!PRIX[plan] || !["mensuel", "annuel"].includes(periodicite)) {
-      return reponseErreur("Offre invalide.", 400);
-    }
+    const montantAttendu = prixOffre(plan, periodicite);
+    if (montantAttendu === null) return reponseJson(req, { error: "Offre invalide." }, 400);
 
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) return reponseErreur("Non authentifié.", 401);
+    if (!authHeader) return reponseJson(req, { error: "Non authentifié." }, 401);
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-
-    const supabaseAppelant = createClient(supabaseUrl, anonKey, {
+    const appelant = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
       global: { headers: { Authorization: authHeader } },
     });
+    const admin = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
-    const {
-      data: { user },
-      error: erreurUser,
-    } = await supabaseAppelant.auth.getUser();
-    if (erreurUser || !user) return reponseErreur("Session invalide.", 401);
+    const jeton = authHeader.replace(/^Bearer\s+/i, "");
+    const { data: { user } } = await appelant.auth.getUser(jeton);
+    if (!user) return reponseJson(req, { error: "Session invalide." }, 401);
 
-    const { data: profil } = await supabaseAppelant
+    const { data: profil } = await admin
       .from("utilisateurs")
-      .select("entreprise_id, role")
+      .select("id, entreprise_id, role")
       .eq("auth_user_id", user.id)
       .single();
-
     if (!profil || profil.role !== "gerant" || profil.entreprise_id !== entrepriseId) {
-      return reponseErreur("Seul le gérant de cette entreprise peut renouveler son abonnement.", 403);
+      return reponseJson(req, { error: "Seul le gérant de cette entreprise peut renouveler son abonnement." }, 403);
+    }
+
+    // Transaction déjà enregistrée ?
+    const { data: existant } = await admin
+      .from("paiements_abonnement")
+      .select("id, entreprise_id, statut, date_expiration_apres")
+      .eq("fournisseur", "kkiapay")
+      .eq("reference_fournisseur", transactionId)
+      .maybeSingle();
+    if (existant) {
+      if (existant.entreprise_id === profil.entreprise_id && existant.statut === "reussi") {
+        // Nouvelle tentative de confirmation (réseau coupé...) : on répond
+        // succès sans prolonger une seconde fois.
+        return reponseJson(req, { succes: true, nouvelleDateExpiration: existant.date_expiration_apres });
+      }
+      return reponseJson(req, { error: "Cette transaction a déjà été utilisée." }, 409);
     }
 
     // Vérification réelle auprès de Kkiapay avec la clé privée.
-    const kkiapayPrivateKey = Deno.env.get("KKIAPAY_PRIVATE_KEY")!;
-    const kkiapaySandbox = Deno.env.get("KKIAPAY_SANDBOX") === "true";
-    const urlVerification = kkiapaySandbox
-      ? "https://api-sandbox.kkiapay.me/api/v1/transactions/status"
-      : "https://api.kkiapay.me/api/v1/transactions/status";
+    const sandbox = Deno.env.get("KKIAPAY_SANDBOX") === "true";
+    const reponseKkiapay = await fetch(
+      sandbox
+        ? "https://api-sandbox.kkiapay.me/api/v1/transactions/status"
+        : "https://api.kkiapay.me/api/v1/transactions/status",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-api-key": Deno.env.get("KKIAPAY_PRIVATE_KEY")! },
+        body: JSON.stringify({ transactionId }),
+        signal: AbortSignal.timeout(15000),
+      }
+    );
+    const kkiapay = await reponseKkiapay.json().catch(() => ({}));
 
-    const reponseKkiapay = await fetch(urlVerification, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": kkiapayPrivateKey,
-      },
-      body: JSON.stringify({ transactionId }),
-    });
-    const donneesKkiapay = await reponseKkiapay.json();
-
-    if (donneesKkiapay.status !== "SUCCESS") {
-      return reponseErreur("Le paiement n'a pas été confirmé par Kkiapay.", 402);
+    if (kkiapay.status !== "SUCCESS") {
+      return reponseJson(req, { error: "Le paiement n'a pas été confirmé par Kkiapay." }, 402);
+    }
+    if (Number(kkiapay.amount) < montantAttendu) {
+      return reponseJson(req, { error: "Le montant payé ne correspond pas à l'offre choisie." }, 402);
     }
 
-    const montantAttendu = PRIX[plan][periodicite as "mensuel" | "annuel"];
-    if (Number(donneesKkiapay.amount) < montantAttendu) {
-      return reponseErreur("Le montant payé ne correspond pas à l'offre choisie.", 402);
-    }
-
-    // Paiement confirmé : on prolonge l'abonnement. Si l'abonnement
-    // était encore actif, on prolonge à partir de sa date d'expiration
-    // actuelle (pas depuis aujourd'hui) pour ne pas faire perdre de
-    // jours déjà payés.
-    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
-
-    const { data: entreprise } = await supabaseAdmin
-      .from("entreprises")
-      .select("date_expiration_abonnement")
-      .eq("id", entrepriseId)
-      .single();
-
-    const aujourdhui = new Date();
-    const dateActuelle =
-      entreprise?.date_expiration_abonnement && new Date(entreprise.date_expiration_abonnement) > aujourdhui
-        ? new Date(entreprise.date_expiration_abonnement)
-        : aujourdhui;
-
-    const nouvelleDate = new Date(dateActuelle);
-    if (periodicite === "annuel") {
-      nouvelleDate.setFullYear(nouvelleDate.getFullYear() + 1);
-    } else {
-      nouvelleDate.setMonth(nouvelleDate.getMonth() + 1);
-    }
-
-    const { error: erreurMaj } = await supabaseAdmin
-      .from("entreprises")
-      .update({
-        plan_abonnement: plan,
-        periodicite_abonnement: periodicite,
-        date_expiration_abonnement: nouvelleDate.toISOString().slice(0, 10),
-        actif: true,
-        derniere_alerte_envoyee: null,
+    const { data: paiement, error: erreurInsertion } = await admin
+      .from("paiements_abonnement")
+      .insert({
+        entreprise_id: profil.entreprise_id,
+        fournisseur: "kkiapay",
+        reference_fournisseur: transactionId,
+        plan,
+        periodicite,
+        montant: montantAttendu,
+        devise: "XOF",
+        cree_par: profil.id,
       })
-      .eq("id", entrepriseId);
+      .select("id")
+      .single();
+    if (erreurInsertion || !paiement) {
+      // 23505 = course entre deux appels simultanés avec la même transaction.
+      const code = (erreurInsertion as { code?: string } | null)?.code;
+      return reponseJson(
+        req,
+        { error: code === "23505" ? "Cette transaction a déjà été utilisée." : "Enregistrement impossible." },
+        code === "23505" ? 409 : 500
+      );
+    }
 
-    if (erreurMaj) return reponseErreur(erreurMaj.message, 500);
-
-    return new Response(JSON.stringify({ succes: true, nouvelleDateExpiration: nouvelleDate }), {
-      headers: { "Content-Type": "application/json" },
+    const { data: resultat, error: erreurApplication } = await admin.rpc("appliquer_paiement_abonnement", {
+      p_paiement_id: paiement.id,
+      p_montant_confirme: Number(kkiapay.amount),
+      p_reference_fournisseur: transactionId,
     });
+    if (erreurApplication) throw erreurApplication;
+    if (resultat?.erreur) return reponseJson(req, { error: resultat.erreur }, 402);
+
+    return reponseJson(req, { succes: true, nouvelleDateExpiration: resultat.date_expiration });
   } catch (e) {
-    return reponseErreur(String(e), 500);
+    console.error("verifier-paiement-abonnement", e);
+    return reponseJson(req, { error: "Erreur serveur pendant la vérification du paiement." }, 500);
   }
 });
-
-function reponseErreur(message: string, statut: number): Response {
-  return new Response(JSON.stringify({ error: message }), {
-    status: statut,
-    headers: { "Content-Type": "application/json" },
-  });
-}

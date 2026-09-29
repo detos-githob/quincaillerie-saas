@@ -74,8 +74,9 @@ export function limiteEquipe(planAbonnement: string): number {
 
 /**
  * Chemins accessibles en accès "basique" (essai/starter) : tableau de
- * bord (rapport quotidien), vente journalière, stock, tontine, équipe
- * (plafonnée), support, et la gestion de l'abonnement lui-même (pour
+ * bord (rapport quotidien), vente journalière, stock, inventaire,
+ * clients, factures, livraisons, tontine, équipe (plafonnée), support,
+ * et la gestion de l'abonnement lui-même (pour
  * pouvoir passer sur un palier supérieur). Testé par préfixe pour
  * couvrir les sous-routes (ex : /tontines/:id).
  */
@@ -83,7 +84,12 @@ export const PREFIXES_ROUTES_ACCES_BASIQUE = [
   "/",
   "/vente",
   "/stock",
+  "/inventaire",
+  "/clients",
+  "/factures",
+  "/livraisons",
   "/tontines",
+  "/clotures",
   "/equipe",
   "/mon-abonnement",
   "/support",

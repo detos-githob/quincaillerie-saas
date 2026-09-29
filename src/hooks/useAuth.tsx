@@ -21,7 +21,8 @@ interface ContexteAuth {
   connexion: (email: string, motDePasse: string) => Promise<{ erreur: string | null }>;
   inscription: (
     email: string,
-    motDePasse: string
+    motDePasse: string,
+    cguVersion: string
   ) => Promise<{ erreur: string | null; confirmationRequise: boolean }>;
   deconnexion: () => Promise<void>;
   rafraichirProfil: () => Promise<void>;
@@ -108,7 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { erreur: error ? traduireErreurAuth(error.message) : null };
   }
 
-  async function inscription(email: string, motDePasse: string) {
+  async function inscription(email: string, motDePasse: string, cguVersion: string) {
     const { data, error } = await supabase.auth.signUp({
       email,
       password: motDePasse,
@@ -120,6 +121,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // n'est encore associée au compte — l'utilisateur peut donc
         // enchaîner sans avoir à ressaisir son mot de passe.
         emailRedirectTo: `${window.location.origin}/login`,
+        // Conservé sur le compte pour être reporté sur l'entreprise à sa
+        // création (y compris après confirmation de l'email). La preuve
+        // de référence reste l'horodatage serveur posé par la RPC
+        // enregistrer_acceptation_cgu.
+        data: { cgu_version: cguVersion },
       },
     });
     if (error) {
@@ -167,7 +173,10 @@ function traduireErreurAuth(message: string): string {
     return "Un compte existe déjà avec cet email.";
   }
   if (message.includes("Password should be at least")) {
-    return "Le mot de passe doit contenir au moins 6 caractères.";
+    return "Le mot de passe est trop court.";
+  }
+  if (message.includes("Email not confirmed")) {
+    return "Confirme d'abord ton email grâce au lien reçu, puis reconnecte-toi.";
   }
   return "Une erreur est survenue. Réessaie dans un instant.";
 }

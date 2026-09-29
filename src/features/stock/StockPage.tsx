@@ -69,7 +69,7 @@ export function StockPage() {
         {peutGererArticles && (
           <button
             onClick={() => setModaleOuverte(true)}
-            className="flex items-center gap-1.5 bg-stone-900 text-white text-sm font-medium px-3.5 py-2 rounded-lg"
+            className="flex items-center gap-1.5 bg-navy text-white text-sm font-medium px-3.5 py-2 rounded-lg"
           >
             <Plus size={16} /> Nouvel article
           </button>

@@ -18,6 +18,7 @@ export type Module =
   | "tontines"
   | "factures"
   | "depenses"
+  | "clotures"
   | "equipe"
   | "abonnement"
   | "support"
@@ -65,6 +66,7 @@ const NIVEAU_PAR_DEFAUT: Record<RoleUtilisateur, Partial<Record<Module, NiveauAc
     tontines: "ecriture",
     factures: "ecriture",
     depenses: "ecriture",
+    clotures: "ecriture",
     equipe: "ecriture",
     abonnement: "ecriture",
     support: "ecriture",
@@ -78,6 +80,9 @@ const NIVEAU_PAR_DEFAUT: Record<RoleUtilisateur, Partial<Record<Module, NiveauAc
     tontines: "ecriture",
     factures: "ecriture",
     depenses: "ecriture",
+    // Consulte les rapports de clôture ; seul le gérant clôture par
+    // défaut (règle doublée côté serveur : niveau_acces_clotures()).
+    clotures: "lecture",
     abonnement: "lecture",
     support: "ecriture",
   },
@@ -110,6 +115,7 @@ export const TOUS_LES_MODULES: Module[] = [
   "tontines",
   "factures",
   "depenses",
+  "clotures",
   "equipe",
   "abonnement",
   "support",
@@ -128,6 +134,7 @@ export const LABELS_MODULE: Record<Module, string> = {
   tontines: "Tontines",
   factures: "Factures",
   depenses: "Personnel & Dépenses",
+  clotures: "Clôtures",
   equipe: "Équipe",
   abonnement: "Abonnement",
   support: "Support",
@@ -220,6 +227,7 @@ const CHEMIN_PAR_MODULE: Record<Module, string> = {
   tontines: "/tontines",
   factures: "/factures",
   depenses: "/depenses",
+  clotures: "/clotures",
   equipe: "/equipe",
   abonnement: "/mon-abonnement",
   support: "/support",
@@ -245,6 +253,7 @@ const MODULE_PAR_PREFIXE_ROUTE: [string, Module][] = [
   ["/tontines", "tontines"],
   ["/factures", "factures"],
   ["/depenses", "depenses"],
+  ["/clotures", "clotures"],
   ["/equipe", "equipe"],
   ["/mon-abonnement", "abonnement"],
   ["/offres", "abonnement"],

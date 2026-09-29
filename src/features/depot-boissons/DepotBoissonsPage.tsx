@@ -35,7 +35,7 @@ export function DepotBoissonsPage() {
             key={val}
             onClick={() => setOnglet(val)}
             className={`px-3 py-1.5 rounded-full text-sm font-medium border ${
-              onglet === val ? "bg-stone-900 text-white border-stone-900" : "bg-white text-stone-600 border-stone-300"
+              onglet === val ? "bg-navy text-white border-navy" : "bg-white text-stone-600 border-stone-300"
             }`}
           >
             {label}
@@ -85,7 +85,7 @@ function OngletConsignes() {
         <div className="flex gap-2">
           <button
             onClick={() => setModaleOuverte("sortie_consigne")}
-            className="flex-1 flex items-center justify-center gap-1.5 bg-stone-900 text-white text-sm font-medium py-2.5 rounded-lg"
+            className="flex-1 flex items-center justify-center gap-1.5 bg-navy text-white text-sm font-medium py-2.5 rounded-lg"
           >
             <Beer size={15} /> Sortie de casiers
           </button>
@@ -227,7 +227,7 @@ function ModaleMouvementConsigne({
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center px-4">
-      <div className="absolute inset-0 bg-stone-900/40" onClick={onFerme} />
+      <div className="absolute inset-0 bg-navy/40" onClick={onFerme} />
       <div className="relative bg-white rounded-2xl w-full max-w-sm p-5 space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="font-display text-xl font-bold text-stone-900">{titres[type]}</h2>
@@ -344,7 +344,7 @@ function OngletCasses() {
         {peutGerer && (
           <button
             onClick={() => setModaleOuverte(true)}
-            className="flex items-center gap-1.5 bg-stone-900 text-white text-sm font-medium px-3.5 py-2 rounded-lg"
+            className="flex items-center gap-1.5 bg-navy text-white text-sm font-medium px-3.5 py-2 rounded-lg"
           >
             <PackageX size={15} /> Déclarer une casse
           </button>
@@ -431,7 +431,7 @@ function ModaleCasse({
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center px-4">
-      <div className="absolute inset-0 bg-stone-900/40" onClick={onFerme} />
+      <div className="absolute inset-0 bg-navy/40" onClick={onFerme} />
       <div className="relative bg-white rounded-2xl w-full max-w-sm p-5 space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="font-display text-xl font-bold text-stone-900">Déclarer une casse</h2>
@@ -594,7 +594,7 @@ function ModaleConfigurationConsigne({
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center px-4">
-      <div className="absolute inset-0 bg-stone-900/40" onClick={onFerme} />
+      <div className="absolute inset-0 bg-navy/40" onClick={onFerme} />
       <div className="relative bg-white rounded-2xl w-full max-w-sm p-5 space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="font-display text-xl font-bold text-stone-900">{article.designation}</h2>
