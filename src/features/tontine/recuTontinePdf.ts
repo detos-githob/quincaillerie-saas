@@ -83,7 +83,7 @@ export function genererRecuTontinePDF(
 
   // Montant versé
   y += 8;
-  doc.setDrawColor(28, 25, 23);
+  doc.setDrawColor(14, 20, 36);
   doc.setLineWidth(0.5);
   doc.line(marge, y, 196, y);
   y += 12;

@@ -200,7 +200,7 @@ export function VentePage() {
             <button
               onClick={() => setCategorieChoisie(null)}
               className={`whitespace-nowrap px-3.5 py-1.5 rounded-full text-sm font-medium border ${
-                !categorieChoisie ? "bg-stone-900 text-white border-stone-900" : "bg-white text-stone-600 border-stone-300"
+                !categorieChoisie ? "bg-navy text-white border-navy" : "bg-white text-stone-600 border-stone-300"
               }`}
             >
               Tout
@@ -271,7 +271,7 @@ export function VentePage() {
       {panier.length > 0 && !cartOuvert && (
         <button
           onClick={() => setCartOuvert(true)}
-          className="fixed bottom-14 sm:bottom-0 left-0 right-0 sm:left-56 bg-stone-900 text-white px-4 py-3.5 flex items-center justify-between z-30"
+          className="fixed bottom-14 sm:bottom-0 left-0 right-0 sm:left-56 bg-navy text-white px-4 py-3.5 flex items-center justify-between z-30"
         >
           <div className="flex items-center gap-3">
             <span className="flex items-center justify-center w-8 h-8 rounded-full bg-amber-500 text-stone-900 font-bold text-sm">
@@ -287,7 +287,7 @@ export function VentePage() {
       {/* Panneau panier */}
       {cartOuvert && (
         <div className="fixed inset-0 z-40 flex flex-col justify-end">
-          <div className="absolute inset-0 bg-stone-900/40" onClick={() => setCartOuvert(false)} />
+          <div className="absolute inset-0 bg-navy/40" onClick={() => setCartOuvert(false)} />
           <div className="relative bg-white rounded-t-2xl max-h-[85vh] flex flex-col sm:max-w-md sm:mx-auto sm:w-full">
             <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-stone-100">
               <h2 className="font-display text-xl font-bold text-stone-900">Panier ({nombreArticles})</h2>

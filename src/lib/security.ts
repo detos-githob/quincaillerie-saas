@@ -4,7 +4,7 @@ export const POLITIQUE_MOT_DE_PASSE = {
   ageMaxJours: 30,
 } as const;
 
-const CARACTERE_SPECIAL = /[!@#$%^&*()_+\-=[\]{};':"\\|<>?,./`~]/;
+export const CARACTERE_SPECIAL = /[!@#$%^&*()_+\-=[\]{};':"\\|<>?,./`~]/;
 
 export function validerMotDePasse(motDePasse: string): string | null {
   if (motDePasse.length < POLITIQUE_MOT_DE_PASSE.longueurMinimale) {

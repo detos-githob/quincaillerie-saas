@@ -92,7 +92,7 @@ export function genererFacturePDF(facture: FactureAvecDetails, entreprise: Entre
       `${formatMontantPDF(l.remise)} F`,
       `${formatMontantPDF(l.montant_ligne)} F`,
     ]),
-    headStyles: { fillColor: [28, 25, 23] },
+    headStyles: { fillColor: [14, 20, 36] },
     styles: { fontSize: 9 },
   });
 

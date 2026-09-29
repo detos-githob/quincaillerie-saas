@@ -27,6 +27,7 @@ import { useAuth } from "../../hooks/useAuth";
 import { useSyncHorsLigne } from "../../hooks/useSyncHorsLigne";
 import { niveauAcces } from "../../lib/abonnement";
 import { peutAcceder } from "../../lib/permissions";
+import logoMarque from "../../assets/logo-akweo-mark.png";
 
 export function AppShell() {
   const { entreprise, utilisateur, estSuperAdmin, permissions, deconnexion } = useAuth();
@@ -43,8 +44,10 @@ export function AppShell() {
   // quincaillerie (gros/demi-gros) et/ou dépôt de boissons (casiers) —
   // gestion multi-activités : les deux peuvent être actifs à la fois.
   const gereLivraison = secteursActifs.includes("quincaillerie") || secteursActifs.includes("depot_boissons");
-  // Essai/Starter : accès restreint aux fonctionnalités de base (voir
-  // ProtectedRoute pour le blocage effectif des routes correspondantes).
+  // Essai/Starter : Fournisseurs, Dépôt boissons et Personnel & Dépenses
+  // restent réservés aux paliers supérieurs (voir ProtectedRoute pour le
+  // blocage effectif). Inventaire, Clients, Factures, Livraisons et
+  // Équipe sont ouverts à tous les paliers.
   const accesComplet = entreprise ? niveauAcces(entreprise.plan_abonnement) === "complet" : true;
 
   const liensNav = [
@@ -55,7 +58,7 @@ export function AppShell() {
       to: "/inventaire",
       label: "Inventaire",
       icone: ClipboardList,
-      visible: peutAcceder(permissions, "inventaire") && accesComplet,
+      visible: peutAcceder(permissions, "inventaire"),
     },
     {
       to: "/fournisseurs",
@@ -63,16 +66,16 @@ export function AppShell() {
       icone: Handshake,
       visible: peutAcceder(permissions, "fournisseurs") && secteursActifs.includes("quincaillerie") && accesComplet,
     },
-    { to: "/livraisons", label: "Livraisons", icone: Truck, visible: peutAcceder(permissions, "livraisons") && gereLivraison && accesComplet },
+    { to: "/livraisons", label: "Livraisons", icone: Truck, visible: peutAcceder(permissions, "livraisons") && gereLivraison },
     {
       to: "/depot-boissons",
       label: "Dépôt boissons",
       icone: Beer,
       visible: peutAcceder(permissions, "depot_boissons") && secteursActifs.includes("depot_boissons") && accesComplet,
     },
-    { to: "/clients", label: "Clients", icone: Users, visible: peutAcceder(permissions, "clients") && accesComplet },
+    { to: "/clients", label: "Clients", icone: Users, visible: peutAcceder(permissions, "clients") },
     { to: "/tontines", label: "Tontines", icone: PiggyBank, visible: peutAcceder(permissions, "tontines") },
-    { to: "/factures", label: "Factures", icone: FileText, visible: peutAcceder(permissions, "factures") && accesComplet },
+    { to: "/factures", label: "Factures", icone: FileText, visible: peutAcceder(permissions, "factures") },
     {
       to: "/depenses",
       label: "Personnel & Dépenses",
@@ -105,26 +108,29 @@ export function AppShell() {
       `}</style>
 
       {/* Barre supérieure */}
-      <header className="bg-stone-900 text-stone-50 px-4 py-3 flex items-center justify-between sticky top-0 z-30">
-        <div className="min-w-0">
+      <header className="bg-navy text-stone-50 px-4 py-3 flex items-center justify-between sticky top-0 z-30 print:hidden">
+        <div className="min-w-0 flex items-center gap-3">
+          <img src={logoMarque} alt="Akweo" className="h-9 w-auto shrink-0" />
+          <div className="min-w-0">
           <h1 className="font-display text-xl font-bold tracking-tight leading-none truncate">
             {entreprise?.nom || "Chargement..."}
           </h1>
           <p className="text-stone-400 text-xs mt-0.5">
             {utilisateur?.nom} · {utilisateur?.role}
           </p>
+          </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {estSuperAdmin && (
             <NavLink
               to="/admin"
-              className="p-1.5 rounded text-stone-400 hover:text-stone-100 hover:bg-stone-800"
+              className="p-1.5 rounded text-stone-400 hover:text-stone-100 hover:bg-navy-800"
               title="Espace administrateur"
             >
               <ShieldCheck size={16} />
             </NavLink>
           )}
-          <div className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded bg-stone-800">
+          <div className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded bg-navy-800">
             {enLigne ? (
               <>
                 <Wifi size={14} className="text-emerald-400" />
@@ -141,7 +147,7 @@ export function AppShell() {
           </div>
           <button
             onClick={deconnexion}
-            className="p-1.5 rounded text-stone-400 hover:text-stone-100 hover:bg-stone-800"
+            className="p-1.5 rounded text-stone-400 hover:text-stone-100 hover:bg-navy-800"
             title="Se déconnecter"
           >
             <LogOut size={16} />
@@ -152,7 +158,7 @@ export function AppShell() {
       {/* Contenu de la page */}
       <div className="flex-1 pb-16 sm:pb-0 sm:flex">
         {/* Navigation latérale (desktop) */}
-        <nav className="hidden sm:flex sm:flex-col sm:w-56 sm:border-r sm:border-stone-200 sm:py-4 sm:px-2 sm:gap-1 shrink-0">
+        <nav className="print:hidden hidden sm:flex sm:flex-col sm:w-56 sm:border-r sm:border-stone-200 sm:py-4 sm:px-2 sm:gap-1 shrink-0">
           {liensNav.map((lien) => (
             <NavLink
               key={lien.to}
@@ -161,7 +167,7 @@ export function AppShell() {
               className={({ isActive }) =>
                 `flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium ${
                   isActive
-                    ? "bg-stone-900 text-white"
+                    ? "bg-navy text-white"
                     : "text-stone-600 hover:bg-stone-100"
                 }`
               }
@@ -178,7 +184,7 @@ export function AppShell() {
       </div>
 
       {/* Navigation basse (mobile) */}
-      <nav className="sm:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-stone-200 flex justify-around py-1.5 z-30">
+      <nav className="print:hidden sm:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-stone-200 flex justify-around py-1.5 z-30">
         {(aBesoinDuBoutonPlus ? onglétsMobilePrincipaux : liensNav).map((lien) => (
           <NavLink
             key={lien.to}
@@ -210,7 +216,7 @@ export function AppShell() {
       {/* Panneau "Plus" (mobile) : regroupe les onglets qui ne tiennent pas dans la barre basse */}
       {menuPlusOuvert && (
         <div className="sm:hidden fixed inset-0 z-40 flex items-end">
-          <div className="absolute inset-0 bg-stone-900/40" onClick={() => setMenuPlusOuvert(false)} />
+          <div className="absolute inset-0 bg-navy/40" onClick={() => setMenuPlusOuvert(false)} />
           <div className="relative bg-white w-full rounded-t-2xl p-4 pb-6 max-h-[70vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-3">
               <p className="font-display text-lg font-bold text-stone-900">Tous les onglets</p>

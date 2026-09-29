@@ -84,7 +84,7 @@ export function genererAvoirPDF(
       formatMontantPDF(l.montant_ligne),
     ]),
     theme: "grid",
-    headStyles: { fillColor: [28, 25, 23] },
+    headStyles: { fillColor: [14, 20, 36] },
     styles: { fontSize: 9 },
   });
 

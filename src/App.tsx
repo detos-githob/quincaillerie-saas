@@ -6,6 +6,10 @@ import { LoginPage } from "./features/auth/LoginPage";
 import { SignupPage } from "./features/auth/SignupPage";
 import { CompleterInscriptionPage } from "./features/auth/CompleterInscriptionPage";
 import { AbonnementExpirePage } from "./features/auth/AbonnementExpirePage";
+import { MotDePasseOubliePage } from "./features/auth/MotDePasseOubliePage";
+import { ReinitialiserMotDePassePage } from "./features/auth/ReinitialiserMotDePassePage";
+import { ConditionsGeneralesPage } from "./features/legal/ConditionsGeneralesPage";
+import { ConditionsTontinePage } from "./features/tontine/ConditionsTontinePage";
 import { DashboardPage } from "./features/dashboard/DashboardPage";
 import { VentePage } from "./features/vente/VentePage";
 import { StockPage } from "./features/stock/StockPage";
@@ -36,6 +40,9 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
+          <Route path="/mot-de-passe-oublie" element={<MotDePasseOubliePage />} />
+          <Route path="/reinitialiser-mot-de-passe" element={<ReinitialiserMotDePassePage />} />
+          <Route path="/conditions-generales" element={<ConditionsGeneralesPage />} />
           <Route path="/completer-inscription" element={<CompleterInscriptionPage />} />
           <Route path="/abonnement-expire" element={<AbonnementExpirePage />} />
           <Route
@@ -56,6 +63,7 @@ export default function App() {
             <Route path="/depot-boissons" element={<DepotBoissonsPage />} />
             <Route path="/depenses" element={<DepensesPage />} />
             <Route path="/tontines" element={<TontinesPage />} />
+            <Route path="/tontines/conditions" element={<ConditionsTontinePage />} />
             <Route path="/tontines/:id" element={<TontineDetailPage />} />
             <Route path="/clients" element={<ClientsPage />} />
             <Route path="/clients/:id" element={<ClientDetailPage />} />

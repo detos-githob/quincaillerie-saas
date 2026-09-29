@@ -290,7 +290,7 @@ export function DashboardPage() {
                     <Link
                       to="/mon-abonnement"
                       onClick={() => setClocheOuverte(false)}
-                      className="block text-center bg-stone-900 text-white text-sm font-medium py-2 rounded-lg"
+                      className="block text-center bg-navy text-white text-sm font-medium py-2 rounded-lg"
                     >
                       Gérer mon abonnement
                     </Link>

@@ -86,7 +86,7 @@ export function ParametresPage() {
         <button
           onClick={gererEnregistrement}
           disabled={enCours}
-          className="w-full mt-4 bg-stone-900 text-white font-semibold py-2.5 rounded-xl disabled:opacity-60"
+          className="w-full mt-4 bg-navy text-white font-semibold py-2.5 rounded-xl disabled:opacity-60"
         >
           {enCours ? "Enregistrement..." : enregistre ? "Enregistré ✓" : "Enregistrer"}
         </button>

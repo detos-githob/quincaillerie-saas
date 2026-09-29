@@ -71,6 +71,9 @@ export interface Entreprise {
   // (secteur_activite), ex : une quincaillerie qui gère aussi un dépôt
   // de boissons. Toujours au moins secteur_activite dedans.
   secteurs_actifs: SecteurActivite[];
+  // Preuve d'acceptation des CGU Akweo par le gérant (horodatage serveur).
+  cgu_version?: string | null;
+  cgu_acceptees_le?: string | null;
 }
 
 export interface Utilisateur {
@@ -374,7 +377,19 @@ export interface Tontine {
   date_atteinte: string | null;
   utilisateur_id: string | null;
   created_at: string;
+  // Snapshot figé côté serveur des conditions acceptées par le client.
+  conditions_acceptees?: boolean;
+  conditions_version?: number | null;
+  conditions_texte?: string | null;
+  conditions_acceptees_le?: string | null;
   client?: { nom: string; telephone: string | null };
+}
+
+export interface ConditionsTontine {
+  entreprise_id: string;
+  contenu: string;
+  version: number;
+  updated_at: string;
 }
 
 export interface CotisationTontine {
