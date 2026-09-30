@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, X, Receipt, ShoppingBasket, PackageCheck, Trash2 } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
+import { useEnLigne } from "../../hooks/useEnLigne";
+import { EVENEMENT_FILE } from "../../services/offlineQueue";
 import { peutEcrire } from "../../lib/permissions";
 import { listerArticles } from "../../services/articlesService";
 import {
@@ -26,6 +28,7 @@ export function TontineDetailPage() {
   const { entreprise, utilisateur, permissions } = useAuth();
   const peutGerer = peutEcrire(permissions, "tontines");
   const navigate = useNavigate();
+  const enLigne = useEnLigne();
 
   const [tontine, setTontine] = useState<Tontine | null>(null);
   const [cotisations, setCotisations] = useState<CotisationTontine[]>([]);
@@ -39,16 +42,30 @@ export function TontineDetailPage() {
   useEffect(() => {
     if (!id) return;
     rafraichir();
+    // Après une synchronisation, les reçus provisoires deviennent définitifs.
+    window.addEventListener(EVENEMENT_FILE, rafraichir);
+    return () => window.removeEventListener(EVENEMENT_FILE, rafraichir);
   }, [id]);
+
+  const [erreurChargement, setErreurChargement] = useState<string | null>(null);
 
   async function rafraichir() {
     if (!id) return;
-    setChargement(true);
-    const [t, c, p] = await Promise.all([obtenirTontine(id), listerCotisations(id), listerPanierTontine(id)]);
-    setTontine(t);
-    setCotisations(c);
-    setPanier(p);
-    setChargement(false);
+    setErreurChargement(null);
+    try {
+      const [t, c, p] = await Promise.all([
+        obtenirTontine(id),
+        listerCotisations(id),
+        listerPanierTontine(id).catch(() => [] as LignePanierTontine[]),
+      ]);
+      setTontine(t);
+      setCotisations(c);
+      setPanier(p);
+    } catch (e) {
+      setErreurChargement((e as Error).message || "Impossible de charger cette tontine.");
+    } finally {
+      setChargement(false);
+    }
   }
 
   async function gererRecuperation() {
@@ -63,6 +80,17 @@ export function TontineDetailPage() {
     } finally {
       setRecuperationEnCours(false);
     }
+  }
+
+  if (erreurChargement && !tontine) {
+    return (
+      <div className="p-6 text-sm">
+        <p className="text-red-600">{erreurChargement}</p>
+        <button onClick={() => navigate("/tontines")} className="mt-3 text-amber-600 font-medium">
+          Retour aux tontines
+        </button>
+      </div>
+    );
   }
 
   if (chargement || !tontine) {
@@ -134,12 +162,18 @@ export function TontineDetailPage() {
           <div className="mt-3">
             <button
               onClick={gererRecuperation}
-              disabled={recuperationEnCours || panier.length === 0}
+              disabled={recuperationEnCours || panier.length === 0 || !enLigne}
               className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-xl disabled:opacity-60"
             >
               <PackageCheck size={16} />
               {recuperationEnCours ? "Récupération..." : "Récupérer les produits du panier"}
             </button>
+            {!enLigne && (
+              <p className="text-xs text-amber-700 mt-1.5 text-center">
+                Le retrait des produits nécessite une connexion, pour éviter qu'un même client retire deux fois sur
+                deux appareils.
+              </p>
+            )}
             {panier.length === 0 && (
               <p className="text-xs text-stone-400 mt-1.5 text-center">
                 Ajoute des produits au panier avant de pouvoir les récupérer.
@@ -156,7 +190,7 @@ export function TontineDetailPage() {
       <div className="mb-5">
         <div className="flex items-center justify-between mb-2">
           <p className="font-display text-lg font-bold text-stone-900">Panier privé</p>
-          {tontine.statut !== "cloturee" && peutGerer && (
+          {tontine.statut !== "cloturee" && peutGerer && enLigne && (
             <button
               onClick={() => setModaleAjoutArticleOuverte(true)}
               className="flex items-center gap-1.5 text-xs font-medium text-stone-600 border border-stone-300 px-2.5 py-1.5 rounded-lg"
@@ -174,7 +208,7 @@ export function TontineDetailPage() {
                   {l.quantite} {l.article?.unite} · {formatFCFA((l.article?.prix_vente || 0) * l.quantite)}
                 </p>
               </div>
-              {tontine.statut !== "cloturee" && peutGerer && (
+              {tontine.statut !== "cloturee" && peutGerer && enLigne && (
                 <button
                   onClick={async () => {
                     await retirerProduitPanier(l.id);
@@ -208,7 +242,14 @@ export function TontineDetailPage() {
           {cotisations.map((c) => (
             <div key={c.id} className="flex items-center justify-between p-3.5">
               <div>
-                <p className="text-sm font-medium text-stone-900">{c.numero_recu}</p>
+                <p className="text-sm font-medium text-stone-900">
+                  {c.numero_recu}
+                  {(c as { en_attente_synchro?: boolean }).en_attente_synchro && (
+                    <span className="ml-2 text-[11px] font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5">
+                      en attente d'envoi
+                    </span>
+                  )}
+                </p>
                 <p className="text-xs text-stone-400">{new Date(c.created_at).toLocaleDateString("fr-FR")}</p>
               </div>
               <span className="text-sm font-semibold text-stone-900">{formatFCFA(c.montant)}</span>
@@ -268,7 +309,7 @@ function ModaleCotisation({
     setEnCours(true);
     setErreur(null);
     try {
-      const cotisation = await enregistrerCotisation(
+      const resultat = await enregistrerCotisation(
         tontine.id,
         entreprise.id,
         Number(montant),
@@ -276,9 +317,11 @@ function ModaleCotisation({
         utilisateurId
       );
       await onEnregistree();
+      // Hors ligne : reçu PROVISOIRE (numéro définitif attribué à la
+      // synchronisation, visible ensuite dans l'historique).
       genererRecuTontinePDF(
-        cotisation,
-        { ...tontine, montant_cumule: tontine.montant_cumule + Number(montant) },
+        resultat.cotisation,
+        resultat.tontine ?? { ...tontine, montant_cumule: tontine.montant_cumule + Number(montant) },
         tontine.client?.nom || "Client",
         entreprise
       );

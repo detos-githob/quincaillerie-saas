@@ -49,6 +49,15 @@ export function genererRecuTontinePDF(
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
   doc.text(`N° ${cotisation.numero_recu}`, 196, 24, { align: "right" });
+  // Reçu établi hors connexion : le numéro définitif est attribué à la
+  // synchronisation (visible ensuite dans l'historique de la tontine).
+  if (cotisation.numero_recu.startsWith("PROV-")) {
+    doc.setFontSize(8);
+    doc.setTextColor(180, 83, 9);
+    doc.text("REÇU PROVISOIRE — établi hors connexion", 196, 34, { align: "right" });
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(10);
+  }
   doc.text(`Date : ${new Date(cotisation.created_at).toLocaleDateString("fr-FR")}`, 196, 29, {
     align: "right",
   });

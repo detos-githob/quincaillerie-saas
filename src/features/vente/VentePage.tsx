@@ -124,12 +124,6 @@ export function VentePage() {
       // d'abord et on l'utilise à la place du client sélectionné dans
       // le menu déroulant.
       let clientFinal = clientId;
-      if (nouveauClientNom.trim() && !navigator.onLine) {
-        setErreur(
-          "Pas de connexion : impossible de créer un nouveau client maintenant. Choisis un client existant ou vends sans client, puis ajoute-le plus tard."
-        );
-        return;
-      }
       if (nouveauClientNom.trim()) {
         const nouveauClient = await creerClient(
           { nom: nouveauClientNom.trim(), telephone: nouveauClientTelephone.trim() || null, adresse: null, ifu: null, type_client: "detail" },

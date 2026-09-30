@@ -157,3 +157,36 @@ serait écrasée.
 Deux appareils qui synchronisaient en même temps pouvaient faire perdre une déduction de stock ou obtenir le même
 numéro de vente. Les ventes d'une entreprise sont désormais traitées l'une après l'autre (testé : 50 ventes
 simultanées depuis 2 appareils → stock et numéros exacts).
+
+---
+
+# Clients et tontine hors ligne (étape 2)
+
+## À faire
+1. Exécuter `supabase/migration_hors_ligne_tontine.sql` (après `migration_hors_ligne.sql`), **avant** de déployer le site.
+2. Déployer le site.
+3. Sur chaque appareil, ouvrir une fois **en ligne** les pages Clients et Tontines (et les tontines à suivre) :
+   elles sont alors disponibles hors ligne.
+
+## Ce qui fonctionne maintenant sans connexion
+- **Clients** : créer un nouveau client, y compris directement depuis une vente ou une tontine ; consulter la liste et
+  la fiche d'un client.
+- **Tontines** : consulter la liste et le détail ; ouvrir une nouvelle tontine (conditions acceptées par le client) ;
+  **encaisser des cotisations**, avec un reçu PDF **provisoire** (n° `PROV-…`). La jauge et le cumul avancent sur
+  l'appareil, et la tontine passe en « atteint » si le plafond est franchi.
+- Après synchronisation, le numéro définitif (`TR-…`) apparaît dans l'historique de la tontine.
+
+## Reste en ligne uniquement (volontairement)
+- **Retrait des produits d'une tontine** : sinon, un client pourrait retirer deux fois sa marchandise sur deux appareils
+  déconnectés.
+- Ajout ou retrait d'articles dans le panier d'une tontine.
+- Encaissement d'une créance client (message clair si tentative hors ligne).
+
+## Synchronisation
+Une seule file, dans l'ordre réel : un client créé hors ligne part avant la vente ou la tontine qui l'utilise, et une
+tontine avant ses cotisations. Toutes les opérations sont protégées contre les doublons (testé avec une coupure en
+pleine synchronisation) et gardent leur heure réelle. Une cotisation datée d'une journée déjà clôturée est comptée
+aujourd'hui et marquée « saisie tardive ». Les ventes en attente de l'étape 1 sont reprises automatiquement.
+
+## Sécurité ajoutée
+Une tontine ne peut plus être ouverte pour le client d'une autre entreprise (contrôle serveur).

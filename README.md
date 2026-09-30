@@ -90,6 +90,8 @@ suite.
      l'entreprise sur toutes les fonctions SQL appelables par l'app
    - `migration_hors_ligne.sql` — ventes hors ligne fiables : anti-doublon,
      heure réelle, suivi des appareils, verrou anti-course sur le stock
+   - `migration_hors_ligne_tontine.sql` — clients, tontines et
+     cotisations hors ligne
 
    ⚠️ Les 3 migrations `ledger_creances` / `annulation_avoir` /
    `dashboard_decisionnel` touchent la fonction `creer_vente` en cascade

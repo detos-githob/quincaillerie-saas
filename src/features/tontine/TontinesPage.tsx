@@ -177,6 +177,7 @@ function ModaleNouvelleTontine({
     setErreur(null);
     try {
       let clientFinal = clientId;
+      let infosClient = clients.find((c) => c.id === clientId);
       if (nouveauClientNom.trim()) {
         const nouveauClient = await creerClient(
           {
@@ -189,8 +190,12 @@ function ModaleNouvelleTontine({
           entrepriseId
         );
         clientFinal = nouveauClient.id;
+        infosClient = nouveauClient;
       }
-      const tontine = await creerTontine(entrepriseId, clientFinal, montantPlafond, utilisateurId, conditionsAcceptees);
+      const tontine = await creerTontine(entrepriseId, clientFinal, montantPlafond, utilisateurId, conditionsAcceptees, {
+        nom: infosClient?.nom ?? "Client",
+        telephone: infosClient?.telephone ?? null,
+      });
       onCreee(tontine);
       onFerme();
     } catch (e: any) {

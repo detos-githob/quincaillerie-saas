@@ -2,8 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 import { useAuth } from "./useAuth";
 import { identifiantAppareil, libelleAppareil } from "../lib/appareil";
-import { EVENEMENT_FILE, listerVentesEnAttente, listerVentesRejetees } from "../services/offlineQueue";
-import { synchroniserVentesEnAttente, type BilanSynchro } from "../services/ventesService";
+import { EVENEMENT_FILE, listerOperations, listerOperationsRejetees } from "../services/offlineQueue";
+import { synchroniserOperations, type BilanSynchro } from "../services/synchroHorsLigne";
 
 const INTERVALLE_SYNCHRO_MS = 30_000;
 const INTERVALLE_SIGNAL_MS = 5 * 60_000;
@@ -25,10 +25,10 @@ export function useSyncHorsLigne() {
   const dernierSignal = useRef(0);
 
   const rafraichirCompteur = useCallback(async () => {
-    const [file, rejets] = await Promise.all([listerVentesEnAttente(), listerVentesRejetees()]);
+    const [file, rejets] = await Promise.all([listerOperations(), listerOperationsRejetees()]);
     const ent = entreprise?.id;
-    setNombreEnAttente(ent ? file.filter((v) => v.payload.p_entreprise_id === ent).length : file.length);
-    setNombreRejetees(ent ? rejets.filter((v) => v.payload.p_entreprise_id === ent).length : rejets.length);
+    setNombreEnAttente(ent ? file.filter((o) => o.entreprise_id === ent).length : file.length);
+    setNombreRejetees(ent ? rejets.filter((o) => o.entreprise_id === ent).length : rejets.length);
     return file.length;
   }, [entreprise?.id]);
 
@@ -47,7 +47,7 @@ export function useSyncHorsLigne() {
     setSynchroEnCours(true);
     try {
       const avant = await rafraichirCompteur();
-      const bilan = await synchroniserVentesEnAttente(entreprise.id);
+      const bilan = await synchroniserOperations(entreprise.id);
       await rafraichirCompteur();
       if (bilan.envoyees > 0 || bilan.rejetees > 0) setDernierBilan(bilan);
       await signalerAppareil(bilan.enAttente, avant > 0);

@@ -2,10 +2,10 @@ import { useEffect, useState } from "react";
 import { AlertTriangle, CheckCircle2, RefreshCw, Wifi, WifiOff, X } from "lucide-react";
 import { useSyncHorsLigne } from "../../hooks/useSyncHorsLigne";
 import {
-  listerVentesRejetees,
-  relancerVenteRejetee,
-  retirerVenteRejetee,
-  type VenteRejetee,
+  listerOperationsRejetees,
+  relancerOperationRejetee,
+  retirerOperationRejetee,
+  type OperationRejetee,
 } from "../../services/offlineQueue";
 
 type Sync = ReturnType<typeof useSyncHorsLigne>;
@@ -61,7 +61,7 @@ export function IndicateurSynchro({ sync }: { sync: Sync }) {
           {dernierBilan.envoyees > 0 && (
             <p className="flex items-center gap-2">
               <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
-              {dernierBilan.envoyees} vente{dernierBilan.envoyees > 1 ? "s" : ""} hors ligne envoyée
+              {dernierBilan.envoyees} opération{dernierBilan.envoyees > 1 ? "s" : ""} hors ligne envoyée
               {dernierBilan.envoyees > 1 ? "s" : ""}.
             </p>
           )}
@@ -106,9 +106,9 @@ function PanneauSynchro({
   onSynchroniser: () => Promise<void>;
   onFerme: () => void;
 }) {
-  const [rejets, setRejets] = useState<VenteRejetee[]>([]);
+  const [rejets, setRejets] = useState<OperationRejetee[]>([]);
 
-  const recharger = () => listerVentesRejetees().then(setRejets);
+  const recharger = () => listerOperationsRejetees().then(setRejets);
   useEffect(() => {
     recharger();
   }, [nombreEnAttente]);
@@ -132,14 +132,14 @@ function PanneauSynchro({
             </span>
           </p>
           <p className="flex justify-between">
-            <span className="text-stone-500">Ventes en attente sur cet appareil</span>
+            <span className="text-stone-500">Opérations en attente sur cet appareil</span>
             <span className="font-semibold tabular-nums">{nombreEnAttente}</span>
           </p>
         </div>
 
         {!enLigne && (
           <p className="text-xs text-stone-500 mt-3">
-            Tu peux continuer à vendre. Les ventes sont gardées sur cet appareil et partiront automatiquement dès que la
+            Tu peux continuer à vendre et à encaisser les tontines. Tout est gardé sur cet appareil et partiront automatiquement dès que la
             connexion reviendra. Pense à te connecter avant de clôturer la journée.
           </p>
         )}
@@ -156,33 +156,27 @@ function PanneauSynchro({
         {rejets.length > 0 && (
           <section className="mt-4 border-t border-stone-100 pt-3">
             <p className="text-sm font-semibold text-red-700 flex items-center gap-1.5">
-              <AlertTriangle size={15} /> Ventes refusées par le serveur
+              <AlertTriangle size={15} /> Opérations refusées par le serveur
             </p>
             <p className="text-xs text-stone-500 mt-1">
-              Ces ventes ont été faites mais n'ont pas pu être enregistrées. Corrige la cause (ex : article supprimé,
-              compte désactivé) puis relance, ou ressaisis la vente puis retire-la de cette liste.
+              Ces opérations ont été faites mais n'ont pas pu être enregistrées. Corrige la cause (ex : article
+              supprimé, tontine clôturée, compte désactivé) puis relance, ou ressaisis-la puis retire-la de cette
+              liste.
             </p>
             <ul className="mt-2 space-y-2">
               {rejets.map((r) => {
-                const total = r.payload.p_lignes.reduce(
-                  (s, l) => s + Number(l.quantite) * Number(l.prix_unitaire) - Number(l.remise ?? 0),
-                  0
-                );
                 return (
                   <li key={r.id_local} className="border border-stone-200 rounded-lg p-2.5 text-xs">
                     <p className="font-medium text-stone-900">
-                      {new Date(r.vendu_le).toLocaleString("fr-FR")} · {Math.round(total).toLocaleString("fr-FR")} F
+                      {new Date(r.date).toLocaleString("fr-FR")}
+                      {r.montant !== undefined ? ` · ${Math.round(r.montant).toLocaleString("fr-FR")} F` : ""}
                     </p>
-                    <p className="text-stone-500 mt-0.5">
-                      {r.payload.p_lignes
-                        .map((l) => `${l.quantite} × ${String(l.designation ?? "article")}`)
-                        .join(", ")}
-                    </p>
+                    <p className="text-stone-500 mt-0.5">{r.resume}</p>
                     <p className="text-red-600 mt-0.5">{r.derniere_erreur}</p>
                     <div className="flex gap-2 mt-2">
                       <button
                         onClick={async () => {
-                          await relancerVenteRejetee(r.id_local);
+                          await relancerOperationRejetee(r.id_local);
                           await recharger();
                           onSynchroniser();
                         }}
@@ -192,8 +186,8 @@ function PanneauSynchro({
                       </button>
                       <button
                         onClick={async () => {
-                          if (!window.confirm("Retirer cette vente de l'appareil ? Fais-le seulement si tu l'as ressaisie.")) return;
-                          await retirerVenteRejetee(r.id_local);
+                          if (!window.confirm("Retirer cette opération de l'appareil ? Fais-le seulement si tu l'as ressaisie.")) return;
+                          await retirerOperationRejetee(r.id_local);
                           await recharger();
                         }}
                         className="flex-1 border border-stone-300 rounded-md py-1.5 text-stone-600"

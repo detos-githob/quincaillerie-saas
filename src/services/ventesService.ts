@@ -1,14 +1,8 @@
 import { supabase } from "../lib/supabaseClient";
 import type { Avoir, LigneVente, LigneVenteInput, ModePaiement, TypeFacture, Vente } from "../types";
-import {
-  ajouterVenteEnAttente,
-  listerVentesEnAttente,
-  noterEchec,
-  retirerVenteEnAttente,
-  type VenteEnAttente,
-} from "./offlineQueue";
+import { ajouterOperation, resumeVente, type Operation } from "./offlineQueue";
+import { envoyerOperation } from "./synchroHorsLigne";
 import { estErreurReseau } from "../lib/baseLocale";
-import { identifiantAppareil } from "../lib/appareil";
 import { ajusterStockEnCache } from "./articlesService";
 
 export interface PayloadVente {
@@ -26,17 +20,6 @@ export interface ResultatVente {
   saisieTardive?: boolean;
 }
 
-const MAX_TENTATIVES_REFUS = 3;
-
-function envoyerVente(vente: VenteEnAttente) {
-  return supabase.rpc("synchroniser_vente", {
-    p_id_local: vente.id_local,
-    p_vendu_le: vente.vendu_le,
-    p_appareil_id: identifiantAppareil(),
-    ...vente.payload,
-  });
-}
-
 /**
  * Enregistre une vente. L'identifiant unique et l'heure réelle sont fixés
  * ICI, avant tout envoi : si la connexion coupe pendant la réponse, la
@@ -44,95 +27,31 @@ function envoyerVente(vente: VenteEnAttente) {
  * ne la créera pas une seconde fois.
  */
 export async function enregistrerVente(payload: PayloadVente): Promise<ResultatVente> {
-  const vente: VenteEnAttente = {
+  const op: Operation = {
+    type: "vente",
     id_local: crypto.randomUUID(),
-    vendu_le: new Date().toISOString(),
-    payload: payload as unknown as VenteEnAttente["payload"],
+    date: new Date().toISOString(),
+    entreprise_id: payload.p_entreprise_id,
+    payload: payload as unknown as Extract<Operation, { type: "vente" }>["payload"],
     tentatives: 0,
+    ...resumeVente(payload as unknown as Extract<Operation, { type: "vente" }>["payload"]),
   };
 
   const mettreEnFile = async (): Promise<ResultatVente> => {
-    await ajouterVenteEnAttente(vente);
+    await ajouterOperation(op);
     await ajusterStockEnCache(payload.p_lignes);
     return { horsLigne: true };
   };
 
   if (!navigator.onLine) return mettreEnFile();
-
   try {
-    const { data, error } = await envoyerVente(vente);
-    if (error) {
-      if (estErreurReseau(error)) return mettreEnFile();
-      // Refus du serveur (droits, article inconnu...) : on l'affiche.
-      throw error;
-    }
-    return { horsLigne: false, numeroVente: data?.numero_vente, saisieTardive: !!data?.saisie_tardive };
+    const { tardive, donnees } = await envoyerOperation(op);
+    return { horsLigne: false, numeroVente: donnees?.numero_vente as string | undefined, saisieTardive: tardive };
   } catch (err) {
     if (estErreurReseau(err)) return mettreEnFile();
-    throw err;
+    throw err; // refus du serveur : affiché au vendeur
   }
 }
-
-export interface BilanSynchro {
-  envoyees: number;
-  enAttente: number;
-  rejetees: number;
-  tardives: number;
-  interrompue: boolean;
-}
-
-let synchroEnCours: Promise<BilanSynchro> | null = null;
-
-/**
- * Envoie les ventes en attente, dans l'ordre. S'arrête au premier
- * problème réseau (on réessaiera). Une seule synchronisation à la fois
- * dans l'onglet ; entre onglets ou appareils, l'identifiant unique
- * garantit qu'une vente n'est jamais créée deux fois.
- */
-export function synchroniserVentesEnAttente(entrepriseId: string): Promise<BilanSynchro> {
-  if (!synchroEnCours) {
-    synchroEnCours = (async () => {
-      const bilan: BilanSynchro = { envoyees: 0, enAttente: 0, rejetees: 0, tardives: 0, interrompue: false };
-      const file = await listerVentesEnAttente();
-      // Les ventes d'une autre entreprise (autre compte sur cet appareil)
-      // attendent que ce compte se reconnecte.
-      const aEnvoyer = file.filter((v) => v.payload.p_entreprise_id === entrepriseId);
-
-      for (const vente of aEnvoyer) {
-        if (!navigator.onLine) {
-          bilan.interrompue = true;
-          break;
-        }
-        try {
-          const { data, error } = await envoyerVente(vente);
-          if (error) throw error;
-          await retirerVenteEnAttente(vente.id_local);
-          bilan.envoyees++;
-          if (data?.saisie_tardive) bilan.tardives++;
-        } catch (err) {
-          const e = err as { message?: string; code?: string; status?: number };
-          if (estErreurReseau(err) || e.status === 401 || /JWT|token/i.test(e.message ?? "")) {
-            // Réseau ou session à rafraîchir : on réessaiera plus tard.
-            bilan.interrompue = true;
-            break;
-          }
-          const issue = await noterEchec(vente.id_local, e.message ?? "Refus du serveur", MAX_TENTATIVES_REFUS);
-          if (issue === "rejetee") bilan.rejetees++;
-        }
-      }
-
-      bilan.enAttente = (await listerVentesEnAttente()).length;
-      return bilan;
-    })().finally(() => {
-      synchroEnCours = null;
-    });
-  }
-  return synchroEnCours;
-}
-
-// =====================================================================
-// ANNULATION / AVOIR DE VENTE
-// =====================================================================
 
 export async function obtenirVente(id: string): Promise<Vente> {
   const { data, error } = await supabase.from("ventes").select("*").eq("id", id).single();

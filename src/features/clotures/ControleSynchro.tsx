@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { MonitorSmartphone, RefreshCw } from "lucide-react";
 import { supabase } from "../../lib/supabaseClient";
 import { identifiantAppareil } from "../../lib/appareil";
-import { EVENEMENT_FILE, listerVentesEnAttente } from "../../services/offlineQueue";
+import { EVENEMENT_FILE, listerOperations } from "../../services/offlineQueue";
 
 interface AppareilEnRetard {
   appareil_id: string;
@@ -27,8 +27,8 @@ export function useControleSynchro(entrepriseId: string | undefined, date: strin
   useEffect(() => {
     let actif = true;
     const compter = () =>
-      listerVentesEnAttente().then((f) => {
-        if (actif) setEnAttenteIci(f.filter((v) => v.payload.p_entreprise_id === entrepriseId).length);
+      listerOperations().then((f) => {
+        if (actif) setEnAttenteIci(f.filter((o) => o.entreprise_id === entrepriseId).length);
       });
     compter();
     window.addEventListener(EVENEMENT_FILE, compter);
@@ -61,8 +61,8 @@ export function AlerteSynchro({
         <p className="flex items-start gap-2 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
           <RefreshCw size={16} className="shrink-0 mt-0.5" />
           <span>
-            {enAttenteIci} vente{enAttenteIci > 1 ? "s" : ""} de cet appareil {enAttenteIci > 1 ? "ne sont" : "n'est"} pas
-            encore envoyée{enAttenteIci > 1 ? "s" : ""}. Connecte-toi à internet et attends la fin de la
+            {enAttenteIci} opération{enAttenteIci > 1 ? "s" : ""} de cet appareil {enAttenteIci > 1 ? "ne sont" : "n'est"} pas
+            encore envoyée{enAttenteIci > 1 ? "s" : ""} (ventes, cotisations, clients). Connecte-toi à internet et attends la fin de la
             synchronisation avant de clôturer.
           </span>
         </p>
@@ -84,12 +84,12 @@ export function AlerteSynchro({
                   hour: "2-digit",
                   minute: "2-digit",
                 })}
-                {a.operations_en_attente > 0 ? ` · ${a.operations_en_attente} vente(s) en attente signalée(s)` : ""}
+                {a.operations_en_attente > 0 ? ` · ${a.operations_en_attente} opération(s) en attente signalée(s)` : ""}
               </li>
             ))}
           </ul>
           <p className="text-xs mt-1.5">
-            S'ils ont vendu hors ligne, connecte-les avant de clôturer. Sinon, leurs ventes seront comptées sur la
+            S'ils ont vendu hors ligne, connecte-les avant de clôturer. Sinon, leurs ventes et cotisations seront comptées sur la
             prochaine journée ouverte (marquées « saisie tardive »).
           </p>
         </div>
