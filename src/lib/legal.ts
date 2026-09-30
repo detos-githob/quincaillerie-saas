@@ -14,11 +14,11 @@ export const CGU_DATE_MISE_A_JOUR = "29 septembre 2026";
  */
 export const EDITEUR = {
   nom: "Akweo",
-  formeJuridique: "[Forme juridique à compléter]",
-  rccm: "[N° RCCM à compléter]",
-  ifu: "[N° IFU à compléter]",
+  formeJuridique: "Ets La persévérance solution",
+  rccm: "RB/ABC/26 A 142785",
+  ifu: "0202661295552",
   siege: "Cotonou, République du Bénin",
-  emailSupport: "[email de support à compléter]",
+  emailSupport: "jerbtos@gmail.com",
 } as const;
 
 /**
