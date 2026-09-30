@@ -86,6 +86,8 @@ suite.
      annuelle, comptage de caisse et verrou des périodes clôturées
    - `migration_paiements_abonnement.sql` — registre des paiements
      d'abonnement (MTN MoMo + Kkiapay), anti-rejeu, prolongation atomique
+   - `migration_isolation_entreprises.sql` — contrôle d'appartenance à
+     l'entreprise sur toutes les fonctions SQL appelables par l'app
 
    ⚠️ Les 3 migrations `ledger_creances` / `annulation_avoir` /
    `dashboard_decisionnel` touchent la fonction `creer_vente` en cascade

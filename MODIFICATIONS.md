@@ -90,3 +90,29 @@ Puis `VITE_MOMO_SANDBOX=false` côté front, et redéployer.
 - Correction Kkiapay : un même `transactionId` ne peut plus prolonger l'abonnement plusieurs fois (faille de rejeu),
   et la fonction répond maintenant au CORS (la confirmation échouait depuis le navigateur).
 - Un paiement validé après la fermeture de la page est rattrapé à l'ouverture de « Mon abonnement ».
+
+---
+
+# Isolation entre entreprises (sécurité multi-tenant)
+
+## À faire
+Exécuter `supabase/migration_isolation_entreprises.sql` dans le SQL Editor (après `migration_paiements_abonnement.sql`).
+Aucun changement côté application ni redéploiement du front nécessaire. La migration peut être relancée sans risque.
+
+## Faille corrigée
+14 fonctions SQL contournaient la sécurité par entreprise sans vérifier l'appelant. Un utilisateur connecté
+(l'inscription est libre) pouvait, avec l'identifiant d'une autre entreprise, lire son tableau de bord financier ou
+écrire chez elle : ventes, avoirs, paiements, salaires, casses, consignes, inventaires, commandes, droits de l'équipe.
+Deux de ces fonctions (réception de commande, validation d'inventaire) étaient même appelables sans être connecté.
+
+## Ce qui est contrôlé maintenant
+- L'appelant appartient à l'entreprise visée (et son compte est actif).
+- Tout identifiant reçu (client, article, fournisseur, employé, vente, ligne, dépôt, membre) appartient à cette
+  entreprise. Impossible par exemple de vendre l'article d'un autre commerce.
+- L'auteur d'une opération est toujours l'utilisateur connecté (un vendeur ne peut plus attribuer une vente à un collègue).
+- L'écriture dans le grand livre des créances n'est plus accessible depuis l'API.
+
+## Règle pour les prochaines évolutions
+Les fonctions d'origine s'appellent désormais `_interne_<nom>`. Pour modifier la logique d'une vente, modifier
+`_interne_creer_vente` et **ne jamais** recréer `creer_vente` sans son contrôle d'accès : l'enveloppe protégée
+serait écrasée.
