@@ -224,3 +224,16 @@ Fonctionne sans réseau : ventes, factures provisoires, clients, tontines et cot
 corrections de stock, clôture préparée (bloquée tant que l'appareil a des opérations en attente).
 Reste en ligne : retrait des produits d'une tontine, panier de tontine, encaissement des créances, avoirs,
 fournisseurs, inventaires, dépenses et personnel, paiement de l'abonnement.
+
+---
+
+# Application installable (ordinateur, mobile, tablette)
+
+Voir **INSTALLATION.md** pour la mise à disposition (lien d'installation, APK Android via PWABuilder, Windows, iPhone).
+
+- Nouvelle page publique **/installer** : instructions adaptées à l'appareil + bouton d'installation en un clic.
+- Bouton « Installer » dans la barre du haut quand le navigateur le propose, et lien sur les écrans de connexion.
+- Manifeste complété : identifiant stable, français, raccourcis (Vente, Tontines, Clôture), captures d'écran réelles
+  (fenêtre d'installation enrichie, fiches store).
+- Correction : la politique de sécurité (CSP) bloquait la mise en cache des polices par le service worker. Hors ligne,
+  l'app s'affichait avec une police de secours. Polices désormais gardées sur l'appareil.

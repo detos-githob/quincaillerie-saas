@@ -1,5 +1,7 @@
 # Akweo — SaaS de gestion commerciale
 
+> Installer l'app sur ordinateur, téléphone ou tablette (PWA, APK Android, Windows) : voir **INSTALLATION.md**.
+
 Application de gestion pour PME au Bénin, multi-verticaux : stock, ventes,
 facturation, clients, fournisseurs, livraisons, tableau de bord de santé
 de l'entreprise. Sert à la fois les quincailleries (dont la vente en gros

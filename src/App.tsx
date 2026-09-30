@@ -9,6 +9,7 @@ import { AbonnementExpirePage } from "./features/auth/AbonnementExpirePage";
 import { MotDePasseOubliePage } from "./features/auth/MotDePasseOubliePage";
 import { ReinitialiserMotDePassePage } from "./features/auth/ReinitialiserMotDePassePage";
 import { ConditionsGeneralesPage } from "./features/legal/ConditionsGeneralesPage";
+import { InstallerPage } from "./features/installation/InstallerPage";
 import { ConditionsTontinePage } from "./features/tontine/ConditionsTontinePage";
 import { DashboardPage } from "./features/dashboard/DashboardPage";
 import { VentePage } from "./features/vente/VentePage";
@@ -44,6 +45,7 @@ export default function App() {
           <Route path="/mot-de-passe-oublie" element={<MotDePasseOubliePage />} />
           <Route path="/reinitialiser-mot-de-passe" element={<ReinitialiserMotDePassePage />} />
           <Route path="/conditions-generales" element={<ConditionsGeneralesPage />} />
+          <Route path="/installer" element={<InstallerPage />} />
           <Route path="/completer-inscription" element={<CompleterInscriptionPage />} />
           <Route path="/abonnement-expire" element={<AbonnementExpirePage />} />
           <Route

@@ -32,9 +32,13 @@ export function AuthLayout({
           {sousTitre && <p className="text-stone-500 text-sm mt-1">{sousTitre}</p>}
         </div>
         {children}
-        <p className="text-center text-xs text-stone-400 mt-6">
+        <p className="text-center text-xs text-stone-400 mt-6 space-x-3">
+          <Link to="/installer" className="hover:text-stone-600 underline-offset-2 hover:underline">
+            Installer l'application
+          </Link>
+          <span aria-hidden="true">·</span>
           <Link to="/conditions-generales" className="hover:text-stone-600 underline-offset-2 hover:underline">
-            Conditions générales d'utilisation
+            Conditions générales
           </Link>
         </p>
       </div>

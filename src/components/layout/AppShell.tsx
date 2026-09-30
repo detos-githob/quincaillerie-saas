@@ -19,12 +19,14 @@ import {
   LifeBuoy,
   Settings,
   CalendarCheck,
+  Download,
   MoreHorizontal,
   X,
 } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
 import { useSyncHorsLigne } from "../../hooks/useSyncHorsLigne";
 import { IndicateurSynchro } from "./IndicateurSynchro";
+import { useInstallation } from "../../hooks/useInstallation";
 import { niveauAcces } from "../../lib/abonnement";
 import { peutAcceder } from "../../lib/permissions";
 import logoMarque from "../../assets/logo-akweo-mark.png";
@@ -32,6 +34,7 @@ import logoMarque from "../../assets/logo-akweo-mark.png";
 export function AppShell() {
   const { entreprise, utilisateur, estSuperAdmin, permissions, deconnexion } = useAuth();
   const sync = useSyncHorsLigne();
+  const installation = useInstallation();
 
   // Des ventes non envoyées restent sur l'appareil après déconnexion et
   // partiront à la prochaine connexion de ce compte : on prévient.
@@ -144,6 +147,15 @@ export function AppShell() {
             >
               <ShieldCheck size={16} />
             </NavLink>
+          )}
+          {installation.peutInstaller && (
+            <button
+              onClick={installation.installer}
+              className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded bg-amber-500 text-stone-900 font-semibold"
+              title="Installer Akweo sur cet appareil"
+            >
+              <Download size={14} /> <span className="hidden sm:inline">Installer</span>
+            </button>
           )}
           <IndicateurSynchro sync={sync} />
           <button
