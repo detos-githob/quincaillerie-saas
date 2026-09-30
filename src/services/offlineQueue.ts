@@ -49,6 +49,14 @@ export interface TontineHorsLigne {
   utilisateur_id: string | null;
 }
 
+export interface MouvementStockHorsLigne {
+  article_id: string;
+  type: "entree" | "correction_manuelle";
+  /** Variation : +20 pour une entrée, -3 pour une correction. */
+  quantite: number;
+  motif: string;
+}
+
 export interface CotisationHorsLigne {
   tontine_id: string;
   montant: number;
@@ -71,7 +79,8 @@ export type Operation =
   | (Base & { type: "vente"; payload: PayloadVente })
   | (Base & { type: "client"; client: ClientHorsLigne })
   | (Base & { type: "tontine"; tontine: TontineHorsLigne })
-  | (Base & { type: "cotisation"; cotisation: CotisationHorsLigne });
+  | (Base & { type: "cotisation"; cotisation: CotisationHorsLigne })
+  | (Base & { type: "stock"; mouvement: MouvementStockHorsLigne });
 
 export type OperationRejetee = Operation & { rejetee_le: string };
 

@@ -1,5 +1,7 @@
 import { supabase } from "../lib/supabaseClient";
 import { cleCache, ecrireLocal, estErreurReseau, lireLocal } from "../lib/baseLocale";
+import { ajouterOperation, type Operation } from "./offlineQueue";
+import { envoyerOperation } from "./synchroHorsLigne";
 import type { Article } from "../types";
 
 /**
@@ -121,13 +123,13 @@ export async function desactiverArticle(id: string): Promise<void> {
 }
 
 /**
- * Enregistre un mouvement de stock manuel (entrée fournisseur ou
- * correction) et met à jour le stock affiché de l'article.
+ * Entrée (+) ou correction (-) de stock.
  *
- * NOTE : dans une V2, ce calcul devrait être déplacé côté base de
- * données via un trigger PostgreSQL sur mouvements_stock, pour
- * garantir l'atomicité même en cas d'écritures concurrentes
- * (deux vendeurs qui vendent le même article en même temps).
+ * Le serveur applique la VARIATION sur le stock réel (fonction
+ * synchroniser_mouvement_stock), sous le même verrou que les ventes :
+ * une vente faite au même moment sur un autre appareil n'est jamais
+ * écrasée. Sans réseau, le mouvement part dans la file hors ligne et le
+ * stock affiché est mis à jour sur l'appareil.
  */
 export async function ajusterStock(
   entrepriseId: string,
@@ -135,27 +137,33 @@ export async function ajusterStock(
   quantiteDelta: number,
   typeMouvement: "entree" | "correction_manuelle",
   motif: string,
-  utilisateurId: string | null
-): Promise<void> {
-  const quantiteApres = article.stock_actuel + quantiteDelta;
-
-  const { error: erreurMouvement } = await supabase.from("mouvements_stock").insert({
+  _utilisateurId: string | null
+): Promise<{ horsLigne: boolean; stockApres?: number }> {
+  const op: Operation = {
+    type: "stock",
+    id_local: crypto.randomUUID(),
+    date: new Date().toISOString(),
     entreprise_id: entrepriseId,
-    article_id: article.id,
-    type_mouvement: typeMouvement,
-    quantite: quantiteDelta,
-    quantite_avant: article.stock_actuel,
-    quantite_apres: quantiteApres,
-    motif,
-    utilisateur_id: utilisateurId,
-  });
-  if (erreurMouvement) throw erreurMouvement;
+    resume: `${quantiteDelta > 0 ? "Entrée" : "Correction"} de stock : ${quantiteDelta > 0 ? "+" : ""}${quantiteDelta} ${article.designation}`,
+    tentatives: 0,
+    mouvement: { article_id: article.id, type: typeMouvement, quantite: quantiteDelta, motif },
+  };
 
-  const { error: erreurArticle } = await supabase
-    .from("articles")
-    .update({ stock_actuel: quantiteApres })
-    .eq("id", article.id);
-  if (erreurArticle) throw erreurArticle;
+  const horsLigne = async () => {
+    await ajouterOperation(op);
+    // ajusterStockEnCache déduit : on lui passe l'opposé de la variation.
+    await ajusterStockEnCache([{ article_id: article.id, quantite: -quantiteDelta }]);
+    return { horsLigne: true };
+  };
+
+  if (!navigator.onLine) return horsLigne();
+  try {
+    const { donnees } = await envoyerOperation(op);
+    return { horsLigne: false, stockApres: Number(donnees?.stock_apres) };
+  } catch (err) {
+    if (estErreurReseau(err)) return horsLigne();
+    throw err;
+  }
 }
 
 export function articlesEnAlerte(articles: Article[]): Article[] {

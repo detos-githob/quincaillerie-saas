@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react";
 import { FileText, Download, RefreshCw, Undo2, X } from "lucide-react";
-import { listerFacturesRecentes, type FactureAvecDetails } from "../../services/facturesService";
+import {
+  listerFacturesProvisoires,
+  listerFacturesRecentes,
+  type FactureAvecDetails,
+} from "../../services/facturesService";
+import { EVENEMENT_FILE } from "../../services/offlineQueue";
 import { changerTypeFacture } from "../../services/typeFactureService";
 import { creerAvoirVente, listerQuantitesRetourneesParLigne, obtenirAvoir } from "../../services/ventesService";
 import { genererFacturePDF } from "./facturePdf";
@@ -28,11 +33,33 @@ export function FacturesPage() {
 
   const peutAnnuler = peutEcrire(permissions, "factures");
 
+  const [erreurChargement, setErreurChargement] = useState<string | null>(null);
+
   useEffect(() => {
-    listerFacturesRecentes()
-      .then(setFactures)
-      .finally(() => setChargement(false));
-  }, []);
+    if (!entreprise) return;
+    let actif = true;
+    async function charger() {
+      const [provisoires, serveur] = await Promise.all([
+        listerFacturesProvisoires(entreprise!.id).catch(() => [] as FactureAvecDetails[]),
+        listerFacturesRecentes().catch((e) => {
+          if (actif) setErreurChargement((e as Error).message || "Factures indisponibles.");
+          return [] as FactureAvecDetails[];
+        }),
+      ]);
+      if (!actif) return;
+      // Provisoires en tête ; une fois la vente envoyée, elle disparaît
+      // de la file et sa vraie facture apparaît au chargement suivant.
+      setFactures([...provisoires, ...serveur]);
+      setChargement(false);
+    }
+    charger();
+    // Après une synchronisation, les factures provisoires sont remplacées.
+    window.addEventListener(EVENEMENT_FILE, charger);
+    return () => {
+      actif = false;
+      window.removeEventListener(EVENEMENT_FILE, charger);
+    };
+  }, [entreprise]);
 
   async function gererConversion(facture: FactureAvecDetails) {
     const nouveauType = facture.type_facture === "simple" ? "normalisee" : "simple";
@@ -60,6 +87,9 @@ export function FacturesPage() {
   return (
     <div className="max-w-3xl mx-auto px-4 py-5">
       <h1 className="font-display text-2xl font-bold text-stone-900 mb-4">Factures</h1>
+      {erreurChargement && (
+        <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-3">{erreurChargement}</p>
+      )}
 
       <div className="bg-white border border-stone-200 rounded-xl divide-y divide-stone-100">
         {factures.map((facture) => {
@@ -90,6 +120,11 @@ export function FacturesPage() {
                         {styleStatut.texte}
                       </span>
                     )}
+                    {facture.provisoire && (
+                      <span className="text-[11px] font-medium px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200">
+                        Provisoire · en attente d'envoi
+                      </span>
+                    )}
                     {facture.vente.statut === "annulee" && (
                       <span className="text-[11px] font-medium px-1.5 py-0.5 rounded bg-red-50 text-red-600">
                         Annulée
@@ -102,7 +137,7 @@ export function FacturesPage() {
                 <span className="font-display text-base font-bold text-stone-900">
                   {formatFCFA(facture.vente.montant_total)}
                 </span>
-                {peutAnnuler && facture.vente.statut !== "annulee" && (
+                {peutAnnuler && !facture.provisoire && facture.vente.statut !== "annulee" && (
                   <button
                     onClick={() => setFactureAvoir(facture)}
                     className="p-2 rounded-lg border border-stone-300 text-stone-600 hover:bg-red-50 hover:text-red-600 hover:border-red-200"
@@ -111,7 +146,7 @@ export function FacturesPage() {
                     <Undo2 size={16} />
                   </button>
                 )}
-                {peutAnnuler && (
+                {peutAnnuler && !facture.provisoire && (
                   <button
                     onClick={() => gererConversion(facture)}
                     disabled={conversionEnCours === facture.id}

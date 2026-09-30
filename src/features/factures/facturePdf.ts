@@ -52,8 +52,13 @@ export function genererFacturePDF(facture: FactureAvecDetails, entreprise: Entre
   y += 6;
   doc.setFontSize(14);
   doc.setFont("helvetica", "bold");
-  const titre =
-    facture.type_facture === "normalisee" ? "FACTURE NORMALISÉE" : "FACTURE";
+  // Facture établie hors connexion : jamais présentée comme normalisée
+  // (la facture normalisée DGI exige le serveur).
+  const titre = facture.provisoire
+    ? "FACTURE PROVISOIRE"
+    : facture.type_facture === "normalisee"
+      ? "FACTURE NORMALISÉE"
+      : "FACTURE";
   doc.text(titre, 196, 18, { align: "right" });
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
@@ -64,6 +69,17 @@ export function genererFacturePDF(facture: FactureAvecDetails, entreprise: Entre
     29,
     { align: "right" }
   );
+  if (facture.provisoire) {
+    doc.setFontSize(8);
+    doc.setTextColor(180, 83, 9);
+    doc.text("Établie hors connexion — numéro définitif attribué à la synchronisation", 196, 34, { align: "right" });
+    if (facture.type_facture === "normalisee") {
+      doc.text("La facture normalisée sera émise après synchronisation.", 196, 38, { align: "right" });
+    }
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(10);
+    y = Math.max(y, 42);
+  }
 
   // Client
   y += 4;

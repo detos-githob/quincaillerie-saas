@@ -190,3 +190,37 @@ aujourd'hui et marquée « saisie tardive ». Les ventes en attente de l'étape 
 
 ## Sécurité ajoutée
 Une tontine ne peut plus être ouverte pour le client d'une autre entreprise (contrôle serveur).
+
+---
+
+# Factures et stock hors ligne (étape 3)
+
+## À faire
+1. Exécuter `supabase/migration_hors_ligne_stock.sql` (après `migration_hors_ligne_tontine.sql`), **avant** de
+   déployer le site.
+2. Déployer le site. Ouvrir une fois en ligne la page Factures sur chaque appareil.
+
+## Factures hors ligne
+- La page Factures s'ouvre sans réseau : factures déjà téléchargées + **factures provisoires** des ventes en attente
+  (badge « Provisoire · en attente d'envoi »), téléchargeables en PDF.
+- Le PDF porte le titre « FACTURE PROVISOIRE », un numéro `PROV-…` et la mention « établie hors connexion ». Une vente
+  en facture normalisée n'est jamais présentée comme normalisée tant qu'elle n'a pas été envoyée : la facture
+  normalisée DGI est émise après synchronisation.
+- Après synchronisation, la facture provisoire est remplacée automatiquement par la vraie facture.
+- Avoir et conversion de type restent disponibles sur les factures définitives uniquement.
+
+## Stock hors ligne
+- Les boutons + (réapprovisionnement) et − (correction) de la page Stock fonctionnent sans réseau. Le stock affiché
+  est mis à jour sur l'appareil, et le mouvement part à la synchronisation.
+
+## Défaut corrigé (présent aussi en ligne)
+L'app calculait le nouveau stock sur l'appareil puis **écrasait** celui du serveur : une vente faite au même moment
+sur un autre appareil disparaissait du stock, sans erreur. Le serveur applique désormais la **variation** (+20, −3)
+sur le stock réel, sous le même verrou que les ventes (testé : 30 ventes + 20 entrées simultanées → stock exact et
+historique cohérent ligne par ligne).
+
+## Bilan du hors ligne (étapes 1 à 3)
+Fonctionne sans réseau : ventes, factures provisoires, clients, tontines et cotisations (reçus provisoires), entrées et
+corrections de stock, clôture préparée (bloquée tant que l'appareil a des opérations en attente).
+Reste en ligne : retrait des produits d'une tontine, panier de tontine, encaissement des créances, avoirs,
+fournisseurs, inventaires, dépenses et personnel, paiement de l'abonnement.

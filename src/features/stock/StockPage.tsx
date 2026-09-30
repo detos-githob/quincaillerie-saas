@@ -22,6 +22,7 @@ export function StockPage() {
   // Ce n'est PAS le stock lui-même : c'est le nombre à ajouter ou
   // retirer quand on clique sur + ou -.
   const [quantitesSaisies, setQuantitesSaisies] = useState<Record<string, string>>({});
+  const [messageStock, setMessageStock] = useState<{ texte: string; erreur: boolean } | null>(null);
 
   useEffect(() => {
     listerArticles()
@@ -41,17 +42,30 @@ export function StockPage() {
     const delta = sens * quantite;
     const motif = sens > 0 ? "Réapprovisionnement" : "Correction manuelle";
 
-    await ajusterStock(
-      entreprise.id,
-      article,
-      delta,
-      sens > 0 ? "entree" : "correction_manuelle",
-      motif,
-      utilisateur?.id || null
-    );
-    setArticles((prev) =>
-      prev.map((a) => (a.id === article.id ? { ...a, stock_actuel: a.stock_actuel + delta } : a))
-    );
+    try {
+      const resultat = await ajusterStock(
+        entreprise.id,
+        article,
+        delta,
+        sens > 0 ? "entree" : "correction_manuelle",
+        motif,
+        utilisateur?.id || null
+      );
+      setArticles((prev) =>
+        prev.map((a) =>
+          a.id === article.id
+            ? { ...a, stock_actuel: resultat.stockApres ?? Number(a.stock_actuel) + delta }
+            : a
+        )
+      );
+      setMessageStock(
+        resultat.horsLigne
+          ? { texte: `${article.designation} : mouvement gardé sur l'appareil, envoyé au retour de la connexion.`, erreur: false }
+          : null
+      );
+    } catch (e) {
+      setMessageStock({ texte: (e as Error).message || "Mouvement de stock impossible.", erreur: true });
+    }
   }
 
   const articlesFiltres = articles.filter((a) =>
@@ -64,6 +78,15 @@ export function StockPage() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-5">
+      {messageStock && (
+        <p
+          className={`text-sm rounded-lg px-3 py-2 mb-3 border ${
+            messageStock.erreur ? "text-red-700 bg-red-50 border-red-200" : "text-amber-800 bg-amber-50 border-amber-200"
+          }`}
+        >
+          {messageStock.texte}
+        </p>
+      )}
       <div className="flex items-center justify-between mb-4">
         <h1 className="font-display text-2xl font-bold text-stone-900">Stock</h1>
         {peutGererArticles && (

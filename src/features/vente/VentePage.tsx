@@ -151,7 +151,7 @@ export function VentePage() {
 
       setMessageFinal(
         resultat.horsLigne
-          ? "Vente enregistrée sur l'appareil — elle sera envoyée automatiquement au retour de la connexion"
+          ? "Vente enregistrée sur l'appareil — facture provisoire disponible dans Factures, envoi automatique au retour de la connexion"
           : resultat.saisieTardive
             ? `Vente ${resultat.numeroVente ?? ""} enregistrée (journée déjà clôturée : comptée aujourd'hui)`
             : `Vente ${resultat.numeroVente ?? ""} enregistrée`

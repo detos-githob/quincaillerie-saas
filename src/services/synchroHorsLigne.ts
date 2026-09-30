@@ -41,6 +41,20 @@ export async function envoyerOperation(op: Operation): Promise<{ tardive: boolea
     if (error) throw error;
     return { tardive: !!data?.saisie_tardive, donnees: data };
   }
+  if (op.type === "stock") {
+    const { data, error } = await supabase.rpc("synchroniser_mouvement_stock", {
+      p_id_local: op.id_local,
+      p_date: op.date,
+      p_appareil_id: identifiantAppareil(),
+      p_entreprise_id: op.entreprise_id,
+      p_article_id: op.mouvement.article_id,
+      p_type: op.mouvement.type,
+      p_quantite: op.mouvement.quantite,
+      p_motif: op.mouvement.motif,
+    });
+    if (error) throw error;
+    return { tardive: false, donnees: data };
+  }
   if (op.type === "client") {
     // Identifiant créé sur l'appareil : « ne rien faire s'il existe déjà ».
     const { error } = await supabase

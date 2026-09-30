@@ -92,6 +92,8 @@ suite.
      heure réelle, suivi des appareils, verrou anti-course sur le stock
    - `migration_hors_ligne_tontine.sql` — clients, tontines et
      cotisations hors ligne
+   - `migration_hors_ligne_stock.sql` — entrées / corrections de stock
+     atomiques (variation appliquée par le serveur) et hors ligne
 
    ⚠️ Les 3 migrations `ledger_creances` / `annulation_avoir` /
    `dashboard_decisionnel` touchent la fonction `creer_vente` en cascade
