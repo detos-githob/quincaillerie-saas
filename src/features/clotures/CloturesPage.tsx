@@ -11,6 +11,7 @@ import {
 } from "../../services/cloturesService";
 import type { ApercuCloture, Cloture, EtatClotures, TypeCloture } from "../../types";
 import { SyntheseCloture } from "./SyntheseCloture";
+import { AlerteSynchro, useControleSynchro } from "./ControleSynchro";
 import { genererRapportCloturePDF } from "./rapportCloturePdf";
 import { TITRE_TYPE, dateDepuisIso, formatEcart, formatF, isoDepuisDate, libellePeriode } from "./formatCloture";
 
@@ -289,6 +290,8 @@ function CaisseDuJour({
   const [confirmation, setConfirmation] = useState(false);
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
+  const { entreprise } = useAuth();
+  const controle = useControleSynchro(entreprise?.id, date);
 
   const fond = premiere ? Number(fondOuverture) || 0 : Number(s.fond_ouverture) || 0;
   const attendu = fond + s.tresorerie.especes.flux;
@@ -450,6 +453,7 @@ function CaisseDuJour({
       </div>
 
       <div className="px-4 py-3 border-t border-stone-100 space-y-2">
+        <AlerteSynchro enAttenteIci={controle.enAttenteIci} autres={controle.autres} />
         {apercu.raison_non_cloturable && (
           <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
             {apercu.raison_non_cloturable}
@@ -459,7 +463,7 @@ function CaisseDuJour({
         {peutCloturer ? (
           <button
             type="submit"
-            disabled={!!apercu.raison_non_cloturable || enCours}
+            disabled={!!apercu.raison_non_cloturable || enCours || controle.bloquant}
             className="w-full flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-stone-900 font-semibold py-3 rounded-xl disabled:opacity-50"
           >
             <Lock size={16} /> Clôturer la journée

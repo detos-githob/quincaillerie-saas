@@ -124,6 +124,12 @@ export function VentePage() {
       // d'abord et on l'utilise à la place du client sélectionné dans
       // le menu déroulant.
       let clientFinal = clientId;
+      if (nouveauClientNom.trim() && !navigator.onLine) {
+        setErreur(
+          "Pas de connexion : impossible de créer un nouveau client maintenant. Choisis un client existant ou vends sans client, puis ajoute-le plus tard."
+        );
+        return;
+      }
       if (nouveauClientNom.trim()) {
         const nouveauClient = await creerClient(
           { nom: nouveauClientNom.trim(), telephone: nouveauClientTelephone.trim() || null, adresse: null, ifu: null, type_client: "detail" },
@@ -151,8 +157,10 @@ export function VentePage() {
 
       setMessageFinal(
         resultat.horsLigne
-          ? "Vente enregistrée hors ligne — sera synchronisée automatiquement"
-          : "Vente enregistrée"
+          ? "Vente enregistrée sur l'appareil — elle sera envoyée automatiquement au retour de la connexion"
+          : resultat.saisieTardive
+            ? `Vente ${resultat.numeroVente ?? ""} enregistrée (journée déjà clôturée : comptée aujourd'hui)`
+            : `Vente ${resultat.numeroVente ?? ""} enregistrée`
       );
 
       // Mise à jour optimiste du stock affiché localement

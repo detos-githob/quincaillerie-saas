@@ -9,7 +9,49 @@ import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabaseClient";
 import { resoudrePermissions, type PermissionsResolues } from "../lib/permissions";
 import { chargerSurchargesUtilisateur } from "../services/permissionsService";
+import { definirEntrepriseCourante, estErreurReseau, supprimerParPrefixe } from "../lib/baseLocale";
 import type { Entreprise, Utilisateur } from "../types";
+
+// ---------------------------------------------------------------------
+// Mode hors ligne : profil gardé sur l'appareil
+// ---------------------------------------------------------------------
+// Sans réseau, le chargement du profil échoue. Sans ce cache, l'app
+// croirait que le compte n'a pas d'entreprise et renverrait vers
+// l'inscription. On garde donc la dernière version connue du profil
+// (utilisateur, entreprise, droits) pour chaque compte de l'appareil.
+interface ProfilEnCache {
+  utilisateur: Utilisateur;
+  entreprise: Entreprise;
+  surcharges: Parameters<typeof resoudrePermissions>[1];
+  estSuperAdmin: boolean;
+}
+const PREFIXE_PROFIL = "akweo_profil_";
+
+function lireProfilEnCache(userId: string): ProfilEnCache | null {
+  try {
+    const brut = localStorage.getItem(PREFIXE_PROFIL + userId);
+    return brut ? (JSON.parse(brut) as ProfilEnCache) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Session enregistrée par Supabase sur l'appareil. Sans réseau, Supabase
+ * ne peut pas renouveler un jeton expiré et répond « pas de session » :
+ * on garde alors la session connue pour travailler hors ligne. Le jeton
+ * sera renouvelé automatiquement au retour du réseau, avant tout envoi.
+ */
+function sessionEnregistree(): Session | null {
+  try {
+    const cle = (supabase.auth as unknown as { storageKey?: string }).storageKey;
+    const brut = cle ? localStorage.getItem(cle) : null;
+    const s = brut ? JSON.parse(brut) : null;
+    return s?.user?.id && s?.refresh_token ? (s as Session) : null;
+  } catch {
+    return null;
+  }
+}
 
 interface ContexteAuth {
   session: Session | null;
@@ -39,38 +81,67 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [chargement, setChargement] = useState(true);
   const [chargementProfil, setChargementProfil] = useState(false);
 
-  async function verifierSuperAdmin() {
-    const { data } = await supabase.rpc("est_super_admin");
+  async function verifierSuperAdmin(userId: string) {
+    const { data, error } = await supabase.rpc("est_super_admin");
+    if (error && estErreurReseau(error)) {
+      setEstSuperAdmin(!!lireProfilEnCache(userId)?.estSuperAdmin);
+      return;
+    }
     setEstSuperAdmin(!!data);
+  }
+
+  function appliquerProfil(p: ProfilEnCache) {
+    setUtilisateur(p.utilisateur);
+    setEntreprise(p.entreprise);
+    setPermissions(resoudrePermissions(p.utilisateur.role, p.surcharges));
+    definirEntrepriseCourante(p.entreprise.id);
   }
 
   async function chargerProfil(userId: string) {
     setChargementProfil(true);
     try {
-      const { data: profil } = await supabase
+      const { data: profil, error: erreurProfil } = await supabase
         .from("utilisateurs")
         .select("*")
         .eq("auth_user_id", userId)
         .maybeSingle();
+      if (erreurProfil) throw erreurProfil;
 
       if (profil) {
         const profilType = profil as Utilisateur;
-        setUtilisateur(profilType);
-        const [{ data: entrepriseData }, surcharges] = await Promise.all([
+        const [{ data: entrepriseData, error: erreurEntreprise }, surcharges, admin] = await Promise.all([
           supabase.from("entreprises").select("*").eq("id", profilType.entreprise_id).single(),
           // Le gérant n'a jamais de surcharge applicable (toujours accès
           // complet) : inutile d'interroger la table pour lui.
           profilType.role === "gerant" ? Promise.resolve({}) : chargerSurchargesUtilisateur(profilType.id),
+          supabase.rpc("est_super_admin"),
         ]);
-        setEntreprise(entrepriseData as Entreprise);
-        setPermissions(resoudrePermissions(profilType.role, surcharges));
+        if (erreurEntreprise) throw erreurEntreprise;
+        const complet: ProfilEnCache = {
+          utilisateur: profilType,
+          entreprise: entrepriseData as Entreprise,
+          surcharges,
+          estSuperAdmin: !!admin.data,
+        };
+        appliquerProfil(complet);
+        localStorage.setItem(PREFIXE_PROFIL + userId, JSON.stringify(complet));
       } else {
         // Compte authentifié mais pas encore lié à une entreprise
         // (ex: inscription interrompue avant l'étape finale).
         setUtilisateur(null);
         setEntreprise(null);
         setPermissions(resoudrePermissions(undefined));
+        definirEntrepriseCourante(null);
       }
+    } catch (err) {
+      const enCache = lireProfilEnCache(userId);
+      if (estErreurReseau(err) && enCache) {
+        appliquerProfil(enCache);
+      } else if (!estErreurReseau(err)) {
+        throw err;
+      }
+      // Réseau absent et aucun profil connu : l'écran de chargement
+      // indiquera qu'une première connexion en ligne est nécessaire.
     } finally {
       setChargementProfil(false);
     }
@@ -78,25 +149,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
-      setSession(session);
-      if (session?.user) {
-        await Promise.all([chargerProfil(session.user.id), verifierSuperAdmin()]);
+      // Sans réseau, un jeton expiré ne peut pas être renouvelé : on
+      // travaille avec la session connue de l'appareil.
+      const effective = session ?? (!navigator.onLine ? sessionEnregistree() : null);
+      setSession(effective);
+      if (effective?.user) {
+        await Promise.all([chargerProfil(effective.user.id), verifierSuperAdmin(effective.user.id)]).catch(
+          (e) => console.error("Chargement du profil", e)
+        );
       }
       setChargement(false);
     });
 
-    const { data: abonnement } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        setSession(session);
-        if (session?.user) {
-          await Promise.all([chargerProfil(session.user.id), verifierSuperAdmin()]);
-        } else {
-          setUtilisateur(null);
-          setEntreprise(null);
-          setEstSuperAdmin(false);
-        }
+    const { data: abonnement } = supabase.auth.onAuthStateChange(async (evenement, session) => {
+      if (!session) {
+        // Hors ligne, Supabase peut annoncer « pas de session » faute de
+        // pouvoir renouveler le jeton : seule une vraie déconnexion vide
+        // le profil.
+        if (evenement !== "SIGNED_OUT" && sessionEnregistree()) return;
+        setSession(null);
+        setUtilisateur(null);
+        setEntreprise(null);
+        setEstSuperAdmin(false);
+        definirEntrepriseCourante(null);
+        return;
       }
-    );
+      setSession(session);
+      // Renouvellement de jeton : le profil n'a pas changé.
+      if (evenement === "TOKEN_REFRESHED") return;
+      await Promise.all([chargerProfil(session.user.id), verifierSuperAdmin(session.user.id)]).catch((e) =>
+        console.error("Chargement du profil", e)
+      );
+    });
 
     return () => abonnement.subscription.unsubscribe();
   }, []);
@@ -138,7 +222,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function deconnexion() {
-    await supabase.auth.signOut();
+    const userId = session?.user?.id;
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      // Hors ligne, Supabase ne peut pas prévenir le serveur et garde la
+      // session : on la retire nous-mêmes de l'appareil.
+      const cle = (supabase.auth as unknown as { storageKey?: string }).storageKey;
+      if (cle) localStorage.removeItem(cle);
+    }
+    setSession(null);
+    setUtilisateur(null);
+    setEntreprise(null);
+    setEstSuperAdmin(false);
+    // Données en cache de ce compte (profil, articles, clients). La file
+    // des ventes en attente n'est PAS effacée : elle contient de l'argent
+    // encaissé, elle sera envoyée à la prochaine connexion de ce compte.
+    if (userId) localStorage.removeItem(PREFIXE_PROFIL + userId);
+    await supprimerParPrefixe("cache:").catch(() => undefined);
+    definirEntrepriseCourante(null);
   }
 
   async function rafraichirProfil() {

@@ -1,4 +1,5 @@
 import { supabase } from "../lib/supabaseClient";
+import { cleCache, ecrireLocal, estErreurReseau, lireLocal } from "../lib/baseLocale";
 import type { Client, MouvementCreance } from "../types";
 
 export async function obtenirClient(id: string): Promise<Client> {
@@ -7,15 +8,26 @@ export async function obtenirClient(id: string): Promise<Client> {
   return data as Client;
 }
 
+/** Liste les clients ; copie sur l'appareil servie en l'absence de réseau. */
 export async function listerClients(): Promise<Client[]> {
-  const { data, error } = await supabase
-    .from("clients")
-    .select("*")
-    .order("nom", { ascending: true })
-    .limit(2000);
-
-  if (error) throw error;
-  return data as Client[];
+  const cle = cleCache("clients");
+  try {
+    const { data, error } = await supabase
+      .from("clients")
+      .select("*")
+      .order("nom", { ascending: true })
+      .limit(2000);
+    if (error) throw error;
+    if (cle) await ecrireLocal(cle, data).catch(() => undefined);
+    return data as Client[];
+  } catch (err) {
+    if (cle && estErreurReseau(err)) {
+      const copie = await lireLocal<Client[]>(cle).catch(() => undefined);
+      if (copie) return copie;
+      return [];
+    }
+    throw err;
+  }
 }
 
 export async function creerClient(

@@ -116,3 +116,44 @@ Deux de ces fonctions (réception de commande, validation d'inventaire) étaient
 Les fonctions d'origine s'appellent désormais `_interne_<nom>`. Pour modifier la logique d'une vente, modifier
 `_interne_creer_vente` et **ne jamais** recréer `creer_vente` sans son contrôle d'accès : l'enveloppe protégée
 serait écrasée.
+
+---
+
+# Ventes hors ligne fiables, sur plusieurs appareils (étape 1)
+
+## À faire
+1. Exécuter `supabase/migration_hors_ligne.sql` (après `migration_isolation_entreprises.sql`).
+2. Pousser le code et redéployer le site. **Exécute la migration AVANT de déployer le front** : la nouvelle version
+   envoie les ventes par la fonction `synchroniser_vente`, qui doit déjà exister.
+3. Sur chaque appareil de vente, ouvrir l'app une fois **en ligne** : elle télécharge le profil, les articles et
+   les clients, et pourra ensuite démarrer sans réseau.
+
+## Ce qui fonctionne sans connexion
+- Ouvrir l'app (même après l'avoir fermée ou après avoir redémarré l'appareil) et vendre, au comptant ou à crédit à
+  un client existant. Le stock affiché baisse au fur et à mesure.
+- Pas possible hors ligne pour l'instant : créer un nouveau client, les tontines, les entrées de stock et les
+  factures. Ce sont les étapes 2 et 3.
+
+## Synchronisation
+- Automatique dès le retour du réseau, puis toutes les 30 s tant qu'il reste des ventes en attente. La pastille en
+  haut de l'écran montre l'état ; un appui ouvre le détail et le bouton « Synchroniser maintenant ».
+- Chaque vente porte un identifiant unique créé sur l'appareil : si la connexion coupe pendant l'envoi, elle n'est
+  jamais enregistrée deux fois.
+- La vente garde l'heure où elle a été faite, pas l'heure de synchronisation.
+- Une vente datée d'une journée déjà clôturée n'est jamais perdue : elle est comptée sur la journée ouverte et
+  marquée « saisie tardive » (heure réelle conservée).
+- Une vente refusée par le serveur (ex : article supprimé entre-temps) est retentée, puis mise de côté dans la
+  pastille rouge « à vérifier », avec les boutons « Relancer » et « Retirer ». Elle n'est jamais effacée sans
+  action du gérant.
+- Déconnexion : un avertissement s'affiche s'il reste des ventes non envoyées. Elles restent sur l'appareil et
+  partent à la prochaine connexion du même compte.
+
+## Clôture
+- Le bouton « Clôturer la journée » est **bloqué** tant que l'appareil utilisé a des ventes non envoyées.
+- La liste des **autres appareils** qui n'ont pas synchronisé depuis la journée à clôturer s'affiche, en
+  avertissement : connecte-les avant de clôturer s'ils ont vendu hors ligne.
+
+## Correction au passage
+Deux appareils qui synchronisaient en même temps pouvaient faire perdre une déduction de stock ou obtenir le même
+numéro de vente. Les ventes d'une entreprise sont désormais traitées l'une après l'autre (testé : 50 ventes
+simultanées depuis 2 appareils → stock et numéros exacts).

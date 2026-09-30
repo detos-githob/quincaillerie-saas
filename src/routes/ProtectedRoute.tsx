@@ -25,6 +25,21 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
   }
 
   if (!utilisateur) {
+    // Sans réseau, on ne peut pas savoir si le compte a une entreprise :
+    // surtout ne pas l'envoyer vers l'inscription.
+    if (!navigator.onLine) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-stone-50 px-6 text-center">
+          <div className="max-w-sm space-y-2">
+            <p className="font-display text-2xl font-bold text-stone-900">Connexion nécessaire</p>
+            <p className="text-sm text-stone-600">
+              Cet appareil n'a encore jamais été utilisé en ligne avec ce compte. Connecte-le une première fois à
+              internet : il téléchargera tes articles et clients, puis pourra fonctionner hors ligne.
+            </p>
+          </div>
+        </div>
+      );
+    }
     return <Navigate to="/completer-inscription" replace />;
   }
 

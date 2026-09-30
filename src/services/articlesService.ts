@@ -1,16 +1,46 @@
 import { supabase } from "../lib/supabaseClient";
+import { cleCache, ecrireLocal, estErreurReseau, lireLocal } from "../lib/baseLocale";
 import type { Article } from "../types";
 
+/**
+ * Liste les articles actifs. Chaque chargement réussi est copié sur
+ * l'appareil ; sans réseau, on sert cette copie (avec les déductions de
+ * stock des ventes faites hors ligne depuis).
+ */
 export async function listerArticles(): Promise<Article[]> {
-  const { data, error } = await supabase
-    .from("articles")
-    .select("*")
-    .eq("actif", true)
-    .order("designation", { ascending: true })
-    .limit(3000);
+  const cle = cleCache("articles");
+  try {
+    const { data, error } = await supabase
+      .from("articles")
+      .select("*")
+      .eq("actif", true)
+      .order("designation", { ascending: true })
+      .limit(3000);
+    if (error) throw error;
+    if (cle) await ecrireLocal(cle, data).catch(() => undefined);
+    return data as Article[];
+  } catch (err) {
+    if (cle && estErreurReseau(err)) {
+      const copie = await lireLocal<Article[]>(cle).catch(() => undefined);
+      if (copie) return copie;
+      throw new Error("Pas de connexion et aucune liste d'articles sur cet appareil. Connecte-toi une première fois pour la télécharger.");
+    }
+    throw err;
+  }
+}
 
-  if (error) throw error;
-  return data as Article[];
+/** Déduit du stock en cache les quantités d'une vente faite hors ligne. */
+export async function ajusterStockEnCache(lignes: Array<{ article_id: string; quantite: number }>): Promise<void> {
+  const cle = cleCache("articles");
+  if (!cle) return;
+  const copie = await lireLocal<Article[]>(cle).catch(() => undefined);
+  if (!copie) return;
+  const parArticle = new Map<string, number>();
+  for (const l of lignes) parArticle.set(l.article_id, (parArticle.get(l.article_id) ?? 0) + Number(l.quantite));
+  await ecrireLocal(
+    cle,
+    copie.map((a) => (parArticle.has(a.id) ? { ...a, stock_actuel: Number(a.stock_actuel) - parArticle.get(a.id)! } : a))
+  ).catch(() => undefined);
 }
 
 export async function creerArticle(

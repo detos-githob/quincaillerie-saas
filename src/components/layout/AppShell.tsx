@@ -10,8 +10,6 @@ import {
   UserCog,
   ShieldCheck,
   CreditCard,
-  Wifi,
-  WifiOff,
   LogOut,
   Handshake,
   Truck,
@@ -26,13 +24,28 @@ import {
 } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
 import { useSyncHorsLigne } from "../../hooks/useSyncHorsLigne";
+import { IndicateurSynchro } from "./IndicateurSynchro";
 import { niveauAcces } from "../../lib/abonnement";
 import { peutAcceder } from "../../lib/permissions";
 import logoMarque from "../../assets/logo-akweo-mark.png";
 
 export function AppShell() {
   const { entreprise, utilisateur, estSuperAdmin, permissions, deconnexion } = useAuth();
-  const { enLigne, nombreEnAttente } = useSyncHorsLigne();
+  const sync = useSyncHorsLigne();
+
+  // Des ventes non envoyées restent sur l'appareil après déconnexion et
+  // partiront à la prochaine connexion de ce compte : on prévient.
+  async function seDeconnecter() {
+    if (
+      sync.nombreEnAttente > 0 &&
+      !window.confirm(
+        `${sync.nombreEnAttente} vente(s) ne sont pas encore envoyées. Elles resteront sur cet appareil et partiront à ta prochaine connexion avec ce compte. Se déconnecter quand même ?`
+      )
+    ) {
+      return;
+    }
+    await deconnexion();
+  }
   const location = useLocation();
   const [menuPlusOuvert, setMenuPlusOuvert] = useState(false);
 
@@ -132,23 +145,9 @@ export function AppShell() {
               <ShieldCheck size={16} />
             </NavLink>
           )}
-          <div className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded bg-navy-800">
-            {enLigne ? (
-              <>
-                <Wifi size={14} className="text-emerald-400" />
-                <span className="text-stone-300 hidden sm:inline">Synchronisé</span>
-              </>
-            ) : (
-              <>
-                <WifiOff size={14} className="text-amber-400" />
-                <span className="text-stone-300 hidden sm:inline">
-                  Hors ligne{nombreEnAttente > 0 ? ` — ${nombreEnAttente} en attente` : ""}
-                </span>
-              </>
-            )}
-          </div>
+          <IndicateurSynchro sync={sync} />
           <button
-            onClick={deconnexion}
+            onClick={seDeconnecter}
             className="p-1.5 rounded text-stone-400 hover:text-stone-100 hover:bg-navy-800"
             title="Se déconnecter"
           >
