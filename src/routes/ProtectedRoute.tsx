@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { calculerStatutAbonnement, niveauAcces, routeAutoriseeEnAccesBasique } from "../lib/abonnement";
@@ -7,6 +8,8 @@ import type { ReactNode } from "react";
 // Pages accessibles même si l'abonnement est expiré, pour permettre au
 // gérant de le renouveler sans rester bloqué.
 const CHEMINS_EXEMPTES_EXPIRATION = ["/mon-abonnement", "/offres", "/paiement"];
+
+const LandingPage = lazy(() => import("../features/landing/LandingPage").then((m) => ({ default: m.LandingPage })));
 
 export function ProtectedRoute({ children }: { children: ReactNode }) {
   const { session, utilisateur, entreprise, estSuperAdmin, permissions, chargement } = useAuth();
@@ -21,7 +24,15 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
   }
 
   if (!session) {
-    return <Navigate to="/login" replace />;
+    // Visiteur non connecté arrivant sur le domaine : page d'accueil
+    // publique. Les autres pages privées renvoient vers la connexion.
+    return location.pathname === "/" ? (
+      <Suspense fallback={null}>
+        <LandingPage />
+      </Suspense>
+    ) : (
+      <Navigate to="/login" replace />
+    );
   }
 
   if (!utilisateur) {

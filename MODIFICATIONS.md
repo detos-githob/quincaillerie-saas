@@ -237,3 +237,26 @@ Voir **INSTALLATION.md** pour la mise à disposition (lien d'installation, APK A
   (fenêtre d'installation enrichie, fiches store).
 - Correction : la politique de sécurité (CSP) bloquait la mise en cache des polices par le service worker. Hors ligne,
   l'app s'affichait avec une police de secours. Polices désormais gardées sur l'appareil.
+
+---
+
+# Page d'accueil publique (landing)
+
+- Un visiteur **non connecté** qui arrive sur le domaine voit la page de présentation ; un utilisateur connecté arrive
+  toujours sur son tableau de bord. La page est aussi accessible à tout moment sur **/decouvrir**.
+- Contenu fondé sur les fonctions réellement disponibles : ventes et factures, stock, clients et crédits, clôture de
+  caisse, équipe et droits, livraisons, fournisseurs, dépôt de boissons, mode hors connexion multi-appareils, tontine,
+  sécurité, tarifs réels (lus depuis `OFFRES`, donc toujours à jour), installation, questions fréquentes.
+- Boutons « Pour ordinateur » et « Pour mobile » : installation en un clic quand le navigateur le permet, sinon page
+  /installer ; sur ordinateur, « Pour mobile » affiche un QR code à scanner. Si `VITE_LIEN_APK` est renseigné, Android
+  télécharge directement l'APK.
+- Partage sur WhatsApp / Facebook : titre, description et image (`public/og-akweo.png`).
+
+## Performance
+L'application se charge désormais page par page : le code chargé au démarrage passe de **1,47 Mo à 479 Ko**
+(140 Ko compressé). La page d'accueil s'affiche vite même en 3G. Hors connexion, rien ne change : toutes les pages
+restent gardées sur l'appareil.
+
+## À savoir
+La page mentionne la certification e-MECeF comme « en préparation » : elle n'est pas encore branchée dans l'app.
+À mettre à jour quand elle le sera (`src/features/landing/LandingPage.tsx`, question sur les factures normalisées).

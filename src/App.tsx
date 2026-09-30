@@ -1,44 +1,67 @@
+import { lazy, Suspense, type ComponentType } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./hooks/useAuth";
 import { ProtectedRoute } from "./routes/ProtectedRoute";
 import { AppShell } from "./components/layout/AppShell";
-import { LoginPage } from "./features/auth/LoginPage";
-import { SignupPage } from "./features/auth/SignupPage";
-import { CompleterInscriptionPage } from "./features/auth/CompleterInscriptionPage";
-import { AbonnementExpirePage } from "./features/auth/AbonnementExpirePage";
-import { MotDePasseOubliePage } from "./features/auth/MotDePasseOubliePage";
-import { ReinitialiserMotDePassePage } from "./features/auth/ReinitialiserMotDePassePage";
-import { ConditionsGeneralesPage } from "./features/legal/ConditionsGeneralesPage";
-import { InstallerPage } from "./features/installation/InstallerPage";
-import { ConditionsTontinePage } from "./features/tontine/ConditionsTontinePage";
-import { DashboardPage } from "./features/dashboard/DashboardPage";
-import { VentePage } from "./features/vente/VentePage";
-import { StockPage } from "./features/stock/StockPage";
-import { ClientsPage } from "./features/clients/ClientsPage";
-import { ClientDetailPage } from "./features/clients/ClientDetailPage";
-import { FacturesPage } from "./features/factures/FacturesPage";
-import { InventairePage } from "./features/inventaire/InventairePage";
-import { InventaireDetailPage } from "./features/inventaire/InventaireDetailPage";
-import { FournisseursPage } from "./features/fournisseurs/FournisseursPage";
-import { FournisseurDetailPage } from "./features/fournisseurs/FournisseurDetailPage";
-import { LivraisonsPage } from "./features/livraisons/LivraisonsPage";
-import { DepotBoissonsPage } from "./features/depot-boissons/DepotBoissonsPage";
-import { DepensesPage } from "./features/personnel/DepensesPage";
-import { TontinesPage } from "./features/tontine/TontinesPage";
-import { TontineDetailPage } from "./features/tontine/TontineDetailPage";
-import { SupportPage } from "./features/support/SupportPage";
-import { EquipePage } from "./features/equipe/EquipePage";
-import { AdminPage } from "./features/admin/AdminPage";
-import { MonAbonnementPage } from "./features/abonnement/MonAbonnementPage";
-import { OffresPage } from "./features/abonnement/OffresPage";
-import { PaiementPage } from "./features/abonnement/PaiementPage";
-import { ParametresPage } from "./features/parametres/ParametresPage";
-import { CloturesPage } from "./features/clotures/CloturesPage";
+
+/**
+ * Chargement à la demande : chaque page n'est téléchargée que lorsqu'on
+ * l'ouvre. La page d'accueil publique s'affiche ainsi vite, même en 3G.
+ * Hors connexion, toutes les pages restent disponibles : le service
+ * worker les garde toutes sur l'appareil.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function page<M extends Record<string, any>>(charger: () => Promise<M>, nom: keyof M) {
+  return lazy(() => charger().then((m) => ({ default: m[nom] as ComponentType })));
+}
+
+const LoginPage = page(() => import("./features/auth/LoginPage"), "LoginPage");
+const SignupPage = page(() => import("./features/auth/SignupPage"), "SignupPage");
+const CompleterInscriptionPage = page(() => import("./features/auth/CompleterInscriptionPage"), "CompleterInscriptionPage");
+const AbonnementExpirePage = page(() => import("./features/auth/AbonnementExpirePage"), "AbonnementExpirePage");
+const MotDePasseOubliePage = page(() => import("./features/auth/MotDePasseOubliePage"), "MotDePasseOubliePage");
+const ReinitialiserMotDePassePage = page(() => import("./features/auth/ReinitialiserMotDePassePage"), "ReinitialiserMotDePassePage");
+const ConditionsGeneralesPage = page(() => import("./features/legal/ConditionsGeneralesPage"), "ConditionsGeneralesPage");
+const InstallerPage = page(() => import("./features/installation/InstallerPage"), "InstallerPage");
+const ConditionsTontinePage = page(() => import("./features/tontine/ConditionsTontinePage"), "ConditionsTontinePage");
+const DashboardPage = page(() => import("./features/dashboard/DashboardPage"), "DashboardPage");
+const VentePage = page(() => import("./features/vente/VentePage"), "VentePage");
+const StockPage = page(() => import("./features/stock/StockPage"), "StockPage");
+const ClientsPage = page(() => import("./features/clients/ClientsPage"), "ClientsPage");
+const ClientDetailPage = page(() => import("./features/clients/ClientDetailPage"), "ClientDetailPage");
+const FacturesPage = page(() => import("./features/factures/FacturesPage"), "FacturesPage");
+const InventairePage = page(() => import("./features/inventaire/InventairePage"), "InventairePage");
+const InventaireDetailPage = page(() => import("./features/inventaire/InventaireDetailPage"), "InventaireDetailPage");
+const FournisseursPage = page(() => import("./features/fournisseurs/FournisseursPage"), "FournisseursPage");
+const FournisseurDetailPage = page(() => import("./features/fournisseurs/FournisseurDetailPage"), "FournisseurDetailPage");
+const LivraisonsPage = page(() => import("./features/livraisons/LivraisonsPage"), "LivraisonsPage");
+const DepotBoissonsPage = page(() => import("./features/depot-boissons/DepotBoissonsPage"), "DepotBoissonsPage");
+const DepensesPage = page(() => import("./features/personnel/DepensesPage"), "DepensesPage");
+const TontinesPage = page(() => import("./features/tontine/TontinesPage"), "TontinesPage");
+const TontineDetailPage = page(() => import("./features/tontine/TontineDetailPage"), "TontineDetailPage");
+const SupportPage = page(() => import("./features/support/SupportPage"), "SupportPage");
+const EquipePage = page(() => import("./features/equipe/EquipePage"), "EquipePage");
+const AdminPage = page(() => import("./features/admin/AdminPage"), "AdminPage");
+const MonAbonnementPage = page(() => import("./features/abonnement/MonAbonnementPage"), "MonAbonnementPage");
+const OffresPage = page(() => import("./features/abonnement/OffresPage"), "OffresPage");
+const PaiementPage = page(() => import("./features/abonnement/PaiementPage"), "PaiementPage");
+const ParametresPage = page(() => import("./features/parametres/ParametresPage"), "ParametresPage");
+const CloturesPage = page(() => import("./features/clotures/CloturesPage"), "CloturesPage");
+const LandingPage = page(() => import("./features/landing/LandingPage"), "LandingPage");
+
+function ChargementPage() {
+  return (
+    <div className="min-h-[50vh] flex items-center justify-center text-stone-400 text-sm" role="status">
+      Chargement...
+    </div>
+  );
+}
 
 export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        <Suspense fallback={<ChargementPage />}>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
@@ -46,6 +69,7 @@ export default function App() {
           <Route path="/reinitialiser-mot-de-passe" element={<ReinitialiserMotDePassePage />} />
           <Route path="/conditions-generales" element={<ConditionsGeneralesPage />} />
           <Route path="/installer" element={<InstallerPage />} />
+          <Route path="/decouvrir" element={<LandingPage />} />
           <Route path="/completer-inscription" element={<CompleterInscriptionPage />} />
           <Route path="/abonnement-expire" element={<AbonnementExpirePage />} />
           <Route
@@ -81,6 +105,7 @@ export default function App() {
             <Route path="/paiement" element={<PaiementPage />} />
           </Route>
         </Routes>
+        </Suspense>
       </BrowserRouter>
     </AuthProvider>
   );
