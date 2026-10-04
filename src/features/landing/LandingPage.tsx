@@ -20,7 +20,7 @@ import logoAkweo from "../../assets/logo-akweo.png";
 import logoMarque from "../../assets/logo-akweo-mark.png";
 import { PolicesAkweo } from "../../components/layout/AuthLayout";
 import { useInstallation } from "../../hooks/useInstallation";
-import { OFFRES } from "../../services/abonnementService";
+import { economieAnnuelle, listerOffresPubliques, type OffreAbonnement } from "../../services/offresService";
 import { EDITEUR } from "../../lib/legal";
 import { TicketCaisse } from "./TicketCaisse";
 
@@ -31,6 +31,13 @@ function prix(n: number): string {
 }
 
 export function LandingPage() {
+  // Offres et durée d'essai : gérées par le super admin, lues en base.
+  const [catalogue, setCatalogue] = useState<{ essai: OffreAbonnement | null; offres: OffreAbonnement[] } | null>(null);
+  useEffect(() => {
+    listerOffresPubliques().then(setCatalogue).catch(() => setCatalogue({ essai: null, offres: [] }));
+  }, []);
+  const jours = catalogue?.essai?.duree_essai_jours ?? 7;
+
   useEffect(() => {
     const avant = document.title;
     document.title = "Akweo — ventes, stock, tontine et caisse pour votre commerce";
@@ -53,16 +60,16 @@ export function LandingPage() {
       `}</style>
       <Navigation />
       <main>
-        <EnTete />
+        <EnTete jours={jours} />
         <CeQueRemplace />
         <Fonctionnalites />
         <HorsLigne />
         <Tontine />
         <Securite />
-        <Tarifs />
+        <Tarifs catalogue={catalogue} />
         <Installation />
         <Questions />
-        <AppelFinal />
+        <AppelFinal jours={jours} />
       </main>
       <PiedDePage />
     </div>
@@ -138,7 +145,7 @@ function Navigation() {
 // =====================================================================
 // EN-TÊTE
 // =====================================================================
-function EnTete() {
+function EnTete({ jours }: { jours: number }) {
   return (
     <section id="haut" className="relative overflow-hidden bg-[#0E1424] text-stone-100">
       {/* Halo discret derrière le ticket */}
@@ -161,7 +168,7 @@ function EnTete() {
               to="/signup"
               className="inline-flex justify-center items-center bg-[#ECA71E] hover:bg-[#f3b83d] text-[#0E1424] font-semibold text-base px-6 py-3.5 rounded-xl"
             >
-              Essayer gratuitement 7 jours
+              Essayer gratuitement {jours} jours
             </Link>
             <a
               href="#tarifs"
@@ -570,13 +577,13 @@ function Securite() {
 // =====================================================================
 // TARIFS
 // =====================================================================
-function Tarifs() {
+function Tarifs({ catalogue }: { catalogue: { essai: OffreAbonnement | null; offres: OffreAbonnement[] } | null }) {
   const [annuel, setAnnuel] = useState(false);
-  const starter = OFFRES.find((o) => o.id === "starter")!;
-  const business = OFFRES.find((o) => o.id === "business")!;
-  const economie = (o: typeof starter) => o.prixMensuel * 12 - o.prixAnnuel;
-
-  const communs = ["Ventes et factures", "Stock et inventaires", "Clients et crédits", "Tontine clients", "Livraisons", "Clôture de caisse", "Fonctionne hors connexion"];
+  const essai = catalogue?.essai ?? null;
+  const offres = catalogue?.offres ?? [];
+  const jours = essai?.duree_essai_jours ?? 7;
+  const nbCartes = offres.length + (essai ? 1 : 0);
+  const grille = nbCartes >= 4 ? "lg:grid-cols-4" : nbCartes === 3 ? "lg:grid-cols-3" : "lg:grid-cols-2";
 
   return (
     <section id="tarifs" className="bg-[#F4EFE4]">
@@ -585,7 +592,7 @@ function Tarifs() {
           <div className="max-w-xl">
             <h2 className="text-5xl sm:text-6xl font-bold leading-[0.98] text-[#0E1424]">Un prix simple, en francs CFA.</h2>
             <p className="mt-4 text-lg text-stone-700">
-              7 jours gratuits pour essayer, puis l'offre qui correspond à votre commerce. Sans engagement.
+              {jours} jours gratuits pour essayer, puis l'offre qui correspond à votre commerce. Sans engagement.
             </p>
           </div>
           <div className="inline-flex self-start lg:self-auto bg-white rounded-full p-1 border border-stone-300" role="radiogroup" aria-label="Période de facturation">
@@ -606,34 +613,41 @@ function Tarifs() {
           </div>
         </div>
 
-        <div className="mt-12 grid lg:grid-cols-3 gap-5 items-stretch">
-          <CarteOffre
-            nom="Essai"
-            montant="0 F"
-            periode="pendant 7 jours"
-            pour="Pour découvrir Akweo avec vos vrais articles."
-            points={["Toutes les fonctions de l'offre Starter", "2 comptes utilisateurs", "Aucune carte ni paiement demandé"]}
-            action="Commencer l'essai"
-          />
-          <CarteOffre
-            nom={starter.nom}
-            montant={`${prix(annuel ? starter.prixAnnuel : starter.prixMensuel)} F`}
-            periode={annuel ? "par an" : "par mois"}
-            note={annuel ? `${prix(economie(starter))} F d'économie par an` : undefined}
-            pour="Pour la boutique tenue par le gérant et un vendeur."
-            points={[...communs, "2 comptes utilisateurs"]}
-            action="Choisir Starter"
-          />
-          <CarteOffre
-            recommandee
-            nom={business.nom}
-            montant={`${prix(annuel ? business.prixAnnuel : business.prixMensuel)} F`}
-            periode={annuel ? "par an" : "par mois"}
-            note={annuel ? "1 mois offert" : undefined}
-            pour="Pour les grossistes, semi-grossistes et dépôts."
-            points={["Tout Starter", "5 comptes utilisateurs", "Fournisseurs et commandes", "Dépôt de boissons et consignes", "Personnel et dépenses"]}
-            action="Choisir Business"
-          />
+        {!catalogue && <p className="mt-12 text-stone-500">Chargement des tarifs...</p>}
+        <div className={`mt-12 grid sm:grid-cols-2 ${grille} gap-5 items-stretch`}>
+          {essai && (
+            <CarteOffre
+              nom={essai.nom}
+              montant="0 F"
+              periode={`pendant ${jours} jours`}
+              pour={essai.description}
+              points={essai.avantages}
+              action="Commencer l'essai"
+            />
+          )}
+          {offres.map((o) => {
+            const eco = economieAnnuelle(o);
+            const moisOfferts = o.prix_mensuel > 0 ? Math.floor(eco / o.prix_mensuel) : 0;
+            return (
+              <CarteOffre
+                key={o.id}
+                recommandee={o.recommandee}
+                nom={o.nom}
+                montant={`${prix(annuel ? o.prix_annuel : o.prix_mensuel)} F`}
+                periode={annuel ? "par an" : "par mois"}
+                note={
+                  annuel && eco > 0
+                    ? moisOfferts >= 1 && eco % o.prix_mensuel === 0
+                      ? `${moisOfferts} mois offert${moisOfferts > 1 ? "s" : ""}`
+                      : `${prix(eco)} F d'économie par an`
+                    : undefined
+                }
+                pour={o.description}
+                points={o.avantages}
+                action={`Choisir ${o.nom}`}
+              />
+            );
+          })}
         </div>
         <p className="mt-6 text-sm text-stone-600">
           Paiement par MTN Mobile Money, Moov Money ou carte. L'abonnement est prolongé dès la confirmation du paiement.
@@ -789,13 +803,13 @@ function Questions() {
 // =====================================================================
 // APPEL FINAL + PIED DE PAGE
 // =====================================================================
-function AppelFinal() {
+function AppelFinal({ jours }: { jours: number }) {
   return (
     <section className="bg-[#0E1424] text-white">
       <div className="conteneur py-20 lg:py-24 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-8">
         <div>
           <h2 className="text-5xl sm:text-6xl font-bold leading-[0.98]">Ce soir, votre caisse tombe juste.</h2>
-          <p className="mt-4 text-lg text-stone-300">Créez votre commerce en deux minutes, essai gratuit de 7 jours.</p>
+          <p className="mt-4 text-lg text-stone-300">Créez votre commerce en deux minutes, essai gratuit de {jours} jours.</p>
         </div>
         <Link
           to="/signup"

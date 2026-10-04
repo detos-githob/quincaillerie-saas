@@ -10,21 +10,18 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { enTetesCors, reponseJson } from "../_shared/cors.ts";
-import { prixOffre } from "../_shared/tarifs.ts";
+import { calculerPrix } from "../_shared/tarifs.ts";
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: enTetesCors(req) });
   if (req.method !== "POST") return reponseJson(req, { error: "Méthode non autorisée." }, 405);
 
   try {
-    const { transactionId, entrepriseId, plan, periodicite } = await req.json();
+    const { transactionId, entrepriseId, plan, periodicite, code } = await req.json();
 
     if (typeof transactionId !== "string" || !transactionId || transactionId.length > 100 || !entrepriseId) {
       return reponseJson(req, { error: "Champs manquants." }, 400);
     }
-    const montantAttendu = prixOffre(plan, periodicite);
-    if (montantAttendu === null) return reponseJson(req, { error: "Offre invalide." }, 400);
-
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) return reponseJson(req, { error: "Non authentifié." }, 401);
 
@@ -46,6 +43,10 @@ Deno.serve(async (req: Request) => {
     if (!profil || profil.role !== "gerant" || profil.entreprise_id !== entrepriseId) {
       return reponseJson(req, { error: "Seul le gérant de cette entreprise peut renouveler son abonnement." }, 403);
     }
+
+    const { prix, erreur: erreurPrix } = await calculerPrix(admin, profil.entreprise_id, plan, periodicite, code);
+    if (!prix) return reponseJson(req, { error: erreurPrix }, 400);
+    const montantAttendu = prix.montant;
 
     // Transaction déjà enregistrée ?
     const { data: existant } = await admin
@@ -94,6 +95,9 @@ Deno.serve(async (req: Request) => {
         plan,
         periodicite,
         montant: montantAttendu,
+        montant_avant_promo: prix.montantBase,
+        reduction: prix.reduction,
+        code_promo_id: prix.codePromoId,
         devise: "XOF",
         cree_par: profil.id,
       })

@@ -11,6 +11,8 @@ import { resoudrePermissions, type PermissionsResolues } from "../lib/permission
 import { chargerSurchargesUtilisateur } from "../services/permissionsService";
 import { definirEntrepriseCourante, estErreurReseau, supprimerParPrefixe } from "../lib/baseLocale";
 import type { Entreprise, Utilisateur } from "../types";
+import type { OffreAbonnement } from "../services/offresService";
+import type { AgentCommercial } from "../services/promotionsService";
 
 // ---------------------------------------------------------------------
 // Mode hors ligne : profil gardé sur l'appareil
@@ -24,6 +26,8 @@ interface ProfilEnCache {
   entreprise: Entreprise;
   surcharges: Parameters<typeof resoudrePermissions>[1];
   estSuperAdmin: boolean;
+  /** Offre de l'entreprise (droits, nombre de comptes). */
+  offre?: OffreAbonnement | null;
 }
 const PREFIXE_PROFIL = "akweo_profil_";
 
@@ -58,6 +62,10 @@ interface ContexteAuth {
   utilisateur: Utilisateur | null;
   entreprise: Entreprise | null;
   estSuperAdmin: boolean;
+  /** Offre d'abonnement de l'entreprise (null : inconnue → accès complet). */
+  offre: OffreAbonnement | null;
+  /** Fiche d'agent commercial si ce compte en est un. */
+  agent: AgentCommercial | null;
   permissions: PermissionsResolues;
   chargement: boolean;
   connexion: (email: string, motDePasse: string) => Promise<{ erreur: string | null }>;
@@ -77,6 +85,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [utilisateur, setUtilisateur] = useState<Utilisateur | null>(null);
   const [entreprise, setEntreprise] = useState<Entreprise | null>(null);
   const [estSuperAdmin, setEstSuperAdmin] = useState(false);
+  const [offre, setOffre] = useState<OffreAbonnement | null>(null);
+  const [agent, setAgent] = useState<AgentCommercial | null>(null);
   const [permissions, setPermissions] = useState<PermissionsResolues>(resoudrePermissions(undefined));
   const [chargement, setChargement] = useState(true);
   const [chargementProfil, setChargementProfil] = useState(false);
@@ -94,6 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUtilisateur(p.utilisateur);
     setEntreprise(p.entreprise);
     setPermissions(resoudrePermissions(p.utilisateur.role, p.surcharges));
+    setOffre(p.offre ?? null);
     definirEntrepriseCourante(p.entreprise.id);
   }
 
@@ -117,11 +128,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           supabase.rpc("est_super_admin"),
         ]);
         if (erreurEntreprise) throw erreurEntreprise;
+        const { data: offreData } = await supabase
+          .from("offres")
+          .select("*")
+          .eq("id", (entrepriseData as Entreprise).plan_abonnement)
+          .maybeSingle();
         const complet: ProfilEnCache = {
           utilisateur: profilType,
           entreprise: entrepriseData as Entreprise,
           surcharges,
           estSuperAdmin: !!admin.data,
+          offre: (offreData as OffreAbonnement) ?? null,
         };
         appliquerProfil(complet);
         localStorage.setItem(PREFIXE_PROFIL + userId, JSON.stringify(complet));
@@ -130,9 +147,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // (ex: inscription interrompue avant l'étape finale).
         setUtilisateur(null);
         setEntreprise(null);
+        setOffre(null);
         setPermissions(resoudrePermissions(undefined));
         definirEntrepriseCourante(null);
       }
+      // Compte d'agent commercial (indépendant d'une entreprise).
+      const { data: ficheAgent } = await supabase
+        .from("agents_commerciaux")
+        .select("*")
+        .eq("auth_user_id", userId)
+        .maybeSingle();
+      setAgent((ficheAgent as AgentCommercial) ?? null);
     } catch (err) {
       const enCache = lireProfilEnCache(userId);
       if (estErreurReseau(err) && enCache) {
@@ -171,6 +196,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUtilisateur(null);
         setEntreprise(null);
         setEstSuperAdmin(false);
+        setOffre(null);
+        setAgent(null);
         definirEntrepriseCourante(null);
         return;
       }
@@ -234,6 +261,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUtilisateur(null);
     setEntreprise(null);
     setEstSuperAdmin(false);
+    setOffre(null);
+    setAgent(null);
     // Données en cache de ce compte (profil, articles, clients). La file
     // des ventes en attente n'est PAS effacée : elle contient de l'argent
     // encaissé, elle sera envoyée à la prochaine connexion de ce compte.
@@ -253,6 +282,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         utilisateur,
         entreprise,
         estSuperAdmin,
+        offre,
+        agent,
         permissions,
         chargement: chargement || chargementProfil,
         connexion,

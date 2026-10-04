@@ -6,6 +6,18 @@ import { listerEntreprisesAdmin, modifierAbonnement } from "../../services/admin
 import { calculerStatutAbonnement, STYLES_STATUT_ABONNEMENT as STYLES_STATUT } from "../../lib/abonnement";
 import { libelleSecteurActivite, LABELS_SECTEUR_ACTIVITE, OPTIONS_SECTEUR_ACTIVITE } from "../../lib/secteurActivite";
 import type { Entreprise, SecteurActivite } from "../../types";
+import { listerToutesLesOffres, type OffreAbonnement } from "../../services/offresService";
+import { OngletOffres } from "./OngletOffres";
+import { OngletPromotions } from "./OngletPromotions";
+import { OngletCommissions } from "./OngletCommissions";
+
+type Onglet = "entreprises" | "offres" | "promotions" | "commissions";
+const ONGLETS: [Onglet, string][] = [
+  ["entreprises", "Entreprises"],
+  ["offres", "Offres et tarifs"],
+  ["promotions", "Agents et codes promo"],
+  ["commissions", "Commissions"],
+];
 
 const MS_48H = 48 * 60 * 60 * 1000;
 const MS_7J = 7 * 24 * 60 * 60 * 1000;
@@ -21,6 +33,8 @@ export function AdminPage() {
   const [chargement, setChargement] = useState(true);
   const [entrepriseEnEdition, setEntrepriseEnEdition] = useState<Entreprise | null>(null);
   const [secteurFiltre, setSecteurFiltre] = useState<SecteurActivite | "tous">("tous");
+  const [onglet, setOnglet] = useState<Onglet>("entreprises");
+  const [offres, setOffres] = useState<OffreAbonnement[]>([]);
 
   useEffect(() => {
     if (!estSuperAdmin) return;
@@ -28,6 +42,13 @@ export function AdminPage() {
       .then(setEntreprises)
       .finally(() => setChargement(false));
   }, [estSuperAdmin]);
+
+  // Offres rechargées en revenant sur l'onglet Entreprises (après une
+  // création ou un changement de nom dans l'onglet Offres).
+  useEffect(() => {
+    if (estSuperAdmin && onglet === "entreprises") listerToutesLesOffres().then(setOffres).catch(() => undefined);
+  }, [estSuperAdmin, onglet]);
+  const nomOffre = (id: string) => offres.find((o) => o.id === id)?.nom ?? id;
 
   const entreprisesFiltrees = useMemo(
     () =>
@@ -88,7 +109,7 @@ export function AdminPage() {
       <header className="bg-navy text-stone-50 px-5 py-4 relative">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="font-display text-2xl font-bold">Administration — Abonnements</h1>
+            <h1 className="font-display text-2xl font-bold">Administration</h1>
             <p className="text-stone-400 text-xs mt-0.5">
               {entreprises.length} entreprise{entreprises.length > 1 ? "s" : ""} inscrite
               {entreprises.length > 1 ? "s" : ""}
@@ -155,7 +176,7 @@ export function AdminPage() {
                 >
                   <div className="min-w-0">
                     <p className="text-sm font-medium truncate">{e.nom}</p>
-                    <p className="text-xs text-stone-400">{e.plan_abonnement}</p>
+                    <p className="text-xs text-stone-400">{nomOffre(e.plan_abonnement)}</p>
                   </div>
                   <span
                     className={`text-xs font-medium px-2 py-1 rounded shrink-0 ${STYLES_STATUT[info.statut].bg} ${STYLES_STATUT[info.statut].texte}`}
@@ -169,8 +190,39 @@ export function AdminPage() {
             </div>
           </>
         )}
+        <nav className="flex gap-1 mt-4 -mb-1 overflow-x-auto" aria-label="Sections de l'administration">
+          {ONGLETS.map(([id, label]) => (
+            <button
+              key={id}
+              onClick={() => setOnglet(id)}
+              aria-current={onglet === id ? "page" : undefined}
+              className={`shrink-0 px-3.5 py-2 rounded-t-lg text-sm font-medium ${
+                onglet === id ? "bg-stone-50 text-stone-900" : "text-stone-300 hover:text-white"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </nav>
       </header>
 
+      {onglet === "offres" && (
+        <main className="max-w-4xl mx-auto px-4 py-5">
+          <OngletOffres />
+        </main>
+      )}
+      {onglet === "promotions" && (
+        <main className="max-w-4xl mx-auto px-4 py-5">
+          <OngletPromotions />
+        </main>
+      )}
+      {onglet === "commissions" && (
+        <main className="max-w-4xl mx-auto px-4 py-5">
+          <OngletCommissions />
+        </main>
+      )}
+
+      {onglet === "entreprises" && (
       <main className="max-w-3xl mx-auto px-4 py-5">
         {/* Filtre par secteur d'activité */}
         <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
@@ -236,7 +288,7 @@ export function AdminPage() {
                           <p className="text-xs text-stone-400">
                             {entreprise.secteur_activite === "autre" &&
                               `${libelleSecteurActivite(entreprise.secteur_activite, entreprise.secteur_activite_autre)} · `}
-                            {entreprise.plan_abonnement} · {entreprise.periodicite_abonnement || "—"}
+                            {nomOffre(entreprise.plan_abonnement)} · {entreprise.periodicite_abonnement || "—"}
                             {joursRestants !== null &&
                               ` · ${joursRestants >= 0 ? `${joursRestants}j restants` : `expiré depuis ${-joursRestants}j`}`}
                           </p>
@@ -258,10 +310,12 @@ export function AdminPage() {
           )}
         </div>
       </main>
+      )}
 
       {entrepriseEnEdition && (
         <ModaleAbonnement
           entreprise={entrepriseEnEdition}
+          offres={offres}
           onFerme={() => setEntrepriseEnEdition(null)}
           onEnregistre={(champs) =>
             setEntreprises((prev) =>
@@ -276,10 +330,12 @@ export function AdminPage() {
 
 function ModaleAbonnement({
   entreprise,
+  offres,
   onFerme,
   onEnregistre,
 }: {
   entreprise: Entreprise;
+  offres: OffreAbonnement[];
   onFerme: () => void;
   onEnregistre: (champs: Partial<Entreprise>) => void;
 }) {
@@ -323,22 +379,34 @@ function ModaleAbonnement({
         </div>
 
         <div>
-          <label className="text-xs font-medium text-stone-500">Palier</label>
+          <label className="text-xs font-medium text-stone-500">Offre</label>
           <select
             value={plan}
             onChange={(e) => setPlan(e.target.value)}
             className="w-full mt-1 border border-stone-300 rounded-lg py-2 px-3 text-sm bg-white"
           >
-            <option value="essai">Essai</option>
-            <option value="starter">Starter</option>
-            <option value="business">Business</option>
-            <option value="pro">Pro</option>
+            {offres
+              .filter((o) => o.active || o.id === entreprise.plan_abonnement)
+              .map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.nom}
+                  {o.est_essai ? " (essai)" : ""}
+                  {!o.active ? " (désactivée)" : ""}
+                </option>
+              ))}
+            {!offres.some((o) => o.id === plan) && <option value={plan}>{plan}</option>}
           </select>
         </div>
 
         <p className="text-[11px] text-stone-400 -mt-2">
-          Essai et Starter donnent un accès restreint (2 comptes max) ; Business et Pro
-          débloquent toutes les fonctionnalités (5 comptes max).
+          {(() => {
+            const o = offres.find((x) => x.id === plan);
+            return o
+              ? `${o.max_utilisateurs} compte${o.max_utilisateurs > 1 ? "s" : ""} max · ${
+                  o.modules.length ? `${o.modules.length} module(s) avancé(s)` : "modules de base"
+                }. Les offres se règlent dans l'onglet « Offres et tarifs ».`
+              : "";
+          })()}
         </p>
 
         <div>

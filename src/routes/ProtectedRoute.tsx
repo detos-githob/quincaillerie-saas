@@ -1,7 +1,7 @@
 import { lazy, Suspense } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
-import { calculerStatutAbonnement, niveauAcces, routeAutoriseeEnAccesBasique } from "../lib/abonnement";
+import { calculerStatutAbonnement, routeIncluseDansOffre } from "../lib/abonnement";
 import { moduleDeLaRoute, peutAcceder, routeParDefaut } from "../lib/permissions";
 import type { ReactNode } from "react";
 
@@ -12,7 +12,7 @@ const CHEMINS_EXEMPTES_EXPIRATION = ["/mon-abonnement", "/offres", "/paiement"];
 const LandingPage = lazy(() => import("../features/landing/LandingPage").then((m) => ({ default: m.LandingPage })));
 
 export function ProtectedRoute({ children }: { children: ReactNode }) {
-  const { session, utilisateur, entreprise, estSuperAdmin, permissions, chargement } = useAuth();
+  const { session, utilisateur, entreprise, estSuperAdmin, agent, offre, permissions, chargement } = useAuth();
   const location = useLocation();
 
   if (chargement) {
@@ -33,6 +33,11 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
     ) : (
       <Navigate to="/login" replace />
     );
+  }
+
+  if (!utilisateur && agent) {
+    // Compte d'agent commercial sans entreprise : son espace dédié.
+    return <Navigate to="/agent" replace />;
   }
 
   if (!utilisateur) {
@@ -63,18 +68,11 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
     }
   }
 
-  // Accès "basique" (essai/starter) : redirige silencieusement vers la
-  // page d'atterrissage de l'utilisateur toute tentative d'atteindre
-  // une page réservée aux paliers supérieurs (via lien direct, favori,
-  // etc. — la navigation ne propose déjà que les pages autorisées). Le
-  // super admin garde toujours accès à /admin quel que soit le palier
-  // de sa propre entreprise.
-  if (
-    entreprise &&
-    !estSuperAdmin &&
-    niveauAcces(entreprise.plan_abonnement) === "basique" &&
-    !routeAutoriseeEnAccesBasique(location.pathname)
-  ) {
+  // Offre de l'entreprise : une page dont le module n'est pas inclus
+  // (ex : Fournisseurs sur une offre qui ne l'a pas) renvoie vers la page
+  // d'accueil de l'utilisateur. La navigation ne propose déjà que les
+  // pages incluses ; ceci couvre les liens directs et favoris.
+  if (entreprise && !estSuperAdmin && !routeIncluseDansOffre(offre, location.pathname)) {
     const destination = routeParDefaut(permissions);
     if (location.pathname !== destination) {
       return <Navigate to={destination} replace />;

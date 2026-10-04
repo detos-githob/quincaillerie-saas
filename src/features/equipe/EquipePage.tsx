@@ -18,7 +18,7 @@ import {
 import type { Utilisateur } from "../../types";
 
 export function EquipePage() {
-  const { utilisateur, entreprise } = useAuth();
+  const { utilisateur, entreprise , offre } = useAuth();
   const [equipe, setEquipe] = useState<Utilisateur[]>([]);
   const [chargement, setChargement] = useState(true);
   const [modaleOuverte, setModaleOuverte] = useState(false);
@@ -34,7 +34,7 @@ export function EquipePage() {
     return <div className="p-6 text-stone-400 text-sm">Chargement de l'équipe...</div>;
   }
 
-  const limite = entreprise ? limiteEquipe(entreprise.plan_abonnement) : 2;
+  const limite = limiteEquipe(offre);
   const plafondAtteint = equipe.length >= limite;
 
   return (

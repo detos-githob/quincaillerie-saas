@@ -96,6 +96,8 @@ suite.
      cotisations hors ligne
    - `migration_hors_ligne_stock.sql` — entrées / corrections de stock
      atomiques (variation appliquée par le serveur) et hors ligne
+   - `migration_offres_promotions.sql` — offres gérées par le super admin,
+     agents commerciaux, codes promo et commissions
 
    ⚠️ Les 3 migrations `ledger_creances` / `annulation_avoir` /
    `dashboard_decisionnel` touchent la fonction `creer_vente` en cascade

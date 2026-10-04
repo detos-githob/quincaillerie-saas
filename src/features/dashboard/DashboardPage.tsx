@@ -26,7 +26,7 @@ import { totalSortiesArgentDuMois } from "../../services/depensesService";
 import { obtenirTableauDecisionnel, listerStockDormant } from "../../services/decisionnelService";
 import { RappelClotures } from "../clotures/RappelClotures";
 import { peutEcrire as peutEcrireModule } from "../../lib/permissions";
-import { calculerStatutAbonnement, STYLES_STATUT_ABONNEMENT, niveauAcces } from "../../lib/abonnement";
+import { calculerStatutAbonnement, STYLES_STATUT_ABONNEMENT, moduleInclus } from "../../lib/abonnement";
 import type { Alerte, Article, Client, TableauDecisionnel } from "../../types";
 
 function formatFCFA(montant: number): string {
@@ -42,7 +42,7 @@ const ICONES_ALERTE: Record<string, typeof Package> = {
 };
 
 export function DashboardPage() {
-  const { entreprise, utilisateur, permissions } = useAuth();
+  const { entreprise, utilisateur, permissions, offre } = useAuth();
   const peutVoirMarge = utilisateur?.role !== "vendeur";
   const [chargement, setChargement] = useState(true);
   const [ventes7Jours, setVentes7Jours] = useState<{ jour: string; montant: number }[]>([]);
@@ -162,7 +162,7 @@ export function DashboardPage() {
       // Widget sectoriel : dette fournisseurs, uniquement pour les
       // entreprises du secteur quincaillerie ayant un accès complet
       // (module Fournisseurs non disponible en essai/starter).
-      if (entreprise!.secteur_activite === "quincaillerie" && niveauAcces(entreprise!.plan_abonnement) === "complet") {
+      if (entreprise!.secteur_activite === "quincaillerie" && moduleInclus(offre, "fournisseurs")) {
         const [{ data: fournisseurs }, { count: commandesEnAttente }] = await Promise.all([
           supabase.from("fournisseurs").select("solde_du").eq("entreprise_id", entreprise!.id),
           supabase
@@ -205,15 +205,15 @@ export function DashboardPage() {
       }
 
       // Vision globale (tous secteurs) : dépenses + paiements personnel
-      // du mois en cours — module non disponible en essai/starter.
-      if (niveauAcces(entreprise!.plan_abonnement) === "complet") {
+      // du mois en cours — selon l'offre (module Personnel et dépenses).
+      if (moduleInclus(offre, "depenses")) {
         setSortiesArgentMois(await totalSortiesArgentDuMois(entreprise!.id));
       }
 
       // Tableau de bord décisionnel AKWEO : CA/marge du mois, créances,
       // argent immobilisé, ruptures, stock dormant — réservé à l'accès
-      // complet (analyse avancée au-delà du simple rapport quotidien).
-      if (niveauAcces(entreprise!.plan_abonnement) === "complet") {
+      // offres qui incluent le tableau de bord décisionnel.
+      if (moduleInclus(offre, "tableau_decisionnel")) {
         const [tableau, dormant] = await Promise.all([
           obtenirTableauDecisionnel(entreprise!.id),
           listerStockDormant(entreprise!.id),
@@ -242,7 +242,10 @@ export function DashboardPage() {
 
   const [clocheOuverte, setClocheOuverte] = useState(false);
   const infoAbonnement = entreprise ? calculerStatutAbonnement(entreprise) : null;
-  const accesComplet = entreprise ? niveauAcces(entreprise.plan_abonnement) === "complet" : true;
+  const avecDecisionnel = moduleInclus(offre, "tableau_decisionnel");
+  const avecDepenses = moduleInclus(offre, "depenses");
+  const avecFournisseurs = moduleInclus(offre, "fournisseurs");
+  const avecDepot = moduleInclus(offre, "depot_boissons");
   const abonnementAAlerter = infoAbonnement?.statut === "alerte" || infoAbonnement?.statut === "expire";
 
   if (chargement) {
@@ -364,7 +367,7 @@ export function DashboardPage() {
       </div>
 
       {/* Vue décisionnelle AKWEO : CA/marge du mois, argent immobilisé, ruptures, stock dormant */}
-      {accesComplet && decisionnel && (
+      {avecDecisionnel && decisionnel && (
         <div className="bg-white border border-stone-200 rounded-xl p-4">
           <div className="flex items-center gap-2 mb-3">
             <Gauge size={16} className="text-slate-500" />
@@ -435,7 +438,7 @@ export function DashboardPage() {
       )}
 
       {/* Vision globale (tous secteurs) : dépenses + personnel du mois */}
-      {accesComplet && (
+      {avecDepenses && (
         <div className="bg-white border border-stone-200 rounded-xl p-4">
           <div className="flex items-center gap-2 mb-3">
             <Wallet size={16} className="text-slate-500" />
@@ -459,7 +462,7 @@ export function DashboardPage() {
       )}
 
       {/* Widget spécifique au secteur d'activité */}
-      {entreprise?.secteur_activite === "quincaillerie" && accesComplet && (
+      {entreprise?.secteur_activite === "quincaillerie" && avecFournisseurs && (
         <div className="bg-white border border-stone-200 rounded-xl p-4">
           <div className="flex items-center gap-2 mb-3">
             <Handshake size={16} className="text-slate-500" />
@@ -482,7 +485,7 @@ export function DashboardPage() {
         </div>
       )}
 
-      {entreprise?.secteur_activite === "depot_boissons" && accesComplet && (
+      {entreprise?.secteur_activite === "depot_boissons" && avecDepot && (
         <div className="bg-white border border-stone-200 rounded-xl p-4">
           <div className="flex items-center gap-2 mb-3">
             <Beer size={16} className="text-slate-500" />

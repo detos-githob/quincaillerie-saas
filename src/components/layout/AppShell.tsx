@@ -20,6 +20,7 @@ import {
   Settings,
   CalendarCheck,
   Download,
+  BadgePercent,
   MoreHorizontal,
   X,
 } from "lucide-react";
@@ -27,12 +28,12 @@ import { useAuth } from "../../hooks/useAuth";
 import { useSyncHorsLigne } from "../../hooks/useSyncHorsLigne";
 import { IndicateurSynchro } from "./IndicateurSynchro";
 import { useInstallation } from "../../hooks/useInstallation";
-import { niveauAcces } from "../../lib/abonnement";
+import { moduleInclus } from "../../lib/abonnement";
 import { peutAcceder } from "../../lib/permissions";
 import logoMarque from "../../assets/logo-akweo-mark.png";
 
 export function AppShell() {
-  const { entreprise, utilisateur, estSuperAdmin, permissions, deconnexion } = useAuth();
+  const { entreprise, utilisateur, estSuperAdmin, agent, offre, permissions, deconnexion } = useAuth();
   const sync = useSyncHorsLigne();
   const installation = useInstallation();
 
@@ -65,7 +66,7 @@ export function AppShell() {
   // restent réservés aux paliers supérieurs (voir ProtectedRoute pour le
   // blocage effectif). Inventaire, Clients, Factures, Livraisons et
   // Équipe sont ouverts à tous les paliers.
-  const accesComplet = entreprise ? niveauAcces(entreprise.plan_abonnement) === "complet" : true;
+
 
   const liensNav = [
     { to: "/", label: "Tableau de bord", icone: LayoutDashboard, fin: true, visible: peutAcceder(permissions, "dashboard") },
@@ -81,14 +82,14 @@ export function AppShell() {
       to: "/fournisseurs",
       label: "Fournisseurs",
       icone: Handshake,
-      visible: peutAcceder(permissions, "fournisseurs") && secteursActifs.includes("quincaillerie") && accesComplet,
+      visible: peutAcceder(permissions, "fournisseurs") && secteursActifs.includes("quincaillerie") && moduleInclus(offre, "fournisseurs"),
     },
     { to: "/livraisons", label: "Livraisons", icone: Truck, visible: peutAcceder(permissions, "livraisons") && gereLivraison },
     {
       to: "/depot-boissons",
       label: "Dépôt boissons",
       icone: Beer,
-      visible: peutAcceder(permissions, "depot_boissons") && secteursActifs.includes("depot_boissons") && accesComplet,
+      visible: peutAcceder(permissions, "depot_boissons") && secteursActifs.includes("depot_boissons") && moduleInclus(offre, "depot_boissons"),
     },
     { to: "/clients", label: "Clients", icone: Users, visible: peutAcceder(permissions, "clients") },
     { to: "/tontines", label: "Tontines", icone: PiggyBank, visible: peutAcceder(permissions, "tontines") },
@@ -97,7 +98,7 @@ export function AppShell() {
       to: "/depenses",
       label: "Personnel & Dépenses",
       icone: Wallet,
-      visible: peutAcceder(permissions, "depenses") && accesComplet,
+      visible: peutAcceder(permissions, "depenses") && moduleInclus(offre, "depenses"),
     },
     { to: "/clotures", label: "Clôtures", icone: CalendarCheck, visible: peutAcceder(permissions, "clotures") },
     { to: "/equipe", label: "Équipe", icone: UserCog, visible: peutAcceder(permissions, "equipe") },
@@ -146,6 +147,15 @@ export function AppShell() {
               title="Espace administrateur"
             >
               <ShieldCheck size={16} />
+            </NavLink>
+          )}
+          {agent && (
+            <NavLink
+              to="/agent"
+              className="p-1.5 rounded text-stone-400 hover:text-stone-100 hover:bg-navy-800"
+              title="Espace agent commercial"
+            >
+              <BadgePercent size={16} />
             </NavLink>
           )}
           {installation.peutInstaller && (

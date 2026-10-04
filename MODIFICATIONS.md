@@ -260,3 +260,49 @@ restent gardées sur l'appareil.
 ## À savoir
 La page mentionne la certification e-MECeF comme « en préparation » : elle n'est pas encore branchée dans l'app.
 À mettre à jour quand elle le sera (`src/features/landing/LandingPage.tsx`, question sur les factures normalisées).
+
+---
+
+# Offres, codes promo et agents commerciaux (espace super admin)
+
+## À faire, dans cet ordre
+1. Exécuter `supabase/migration_offres_promotions.sql` dans le SQL Editor.
+2. Déployer les Edge Functions (les 3 premières sont modifiées, la 4e est nouvelle) :
+   ```
+   npx supabase functions deploy momo-paiement-abonnement --use-api
+   npx supabase functions deploy verifier-paiement-abonnement --use-api
+   npx supabase functions deploy creer-utilisateur-equipe --use-api
+   npx supabase functions deploy creer-agent-commercial --use-api
+   ```
+3. Déployer le site.
+
+## Espace super admin (icône bouclier) : 4 onglets
+- **Entreprises** : comme avant ; la liste des offres proposées vient de la base.
+- **Offres et tarifs** : créer ou modifier une offre (prix mensuel/annuel, nombre de comptes, modules inclus,
+  avantages affichés, mise en vente, « Recommandée », désactivation) et la durée de l'essai gratuit.
+  Modules à la carte : Fournisseurs, Dépôt de boissons, Personnel et dépenses, Tableau de bord décisionnel.
+  Le reste (ventes, stock, clients, factures, tontine, livraisons, clôtures, équipe) est inclus partout.
+- **Agents et codes promo** : créer un agent (compte de connexion + taux de commission), créer des codes en % (90 %
+  maximum) ou en francs, limités par offre, formule, dates, nombre d'utilisations ou au premier abonnement.
+  « Copier le lien » donne un lien `…/?code=XXX` : le code est appliqué tout seul au paiement.
+- **Commissions** : créées automatiquement à chaque paiement confirmé avec le code d'un agent (taux × montant
+  réellement payé). On les coche et on les marque payées après avoir versé l'argent.
+
+## Espace agent (/agent)
+L'agent se connecte sur la page de connexion habituelle et arrive sur son espace : ses codes et leurs liens, ses
+commerces (nom, offre, statut : jamais leurs chiffres), ses commissions à recevoir et reçues.
+Mot de passe provisoire affiché une seule fois à la création ; l'agent le change avec « Mot de passe oublié ».
+
+## Sécurité
+- Prix et réduction calculés uniquement par le serveur ; le navigateur n'envoie jamais de montant.
+- Seul le super admin modifie offres, codes, agents et commissions (contrôle dans chaque fonction SQL).
+- Un agent ne voit que ses propres codes, commerces et commissions ; un gérant ne voit aucun code ni agent.
+- Un agent désactivé : ses codes cessent de fonctionner.
+- **Faille corrigée** : une ancienne version de `creer_entreprise_et_gerant` (4 paramètres) était encore appelable
+  par l'API et créait une entreprise **sans date d'expiration**, donc un accès illimité gratuit. Supprimée.
+
+## À savoir
+- Les droits par module sont appliqués par l'application (menus, pages, tableau de bord) et le nombre de comptes
+  par le serveur. Comme avant cette version, les tables des modules avancés ne sont pas encore verrouillées côté
+  base selon l'offre : c'est une amélioration possible.
+- Changer un prix n'affecte pas l'échéance des abonnés : le nouveau prix s'applique à leur prochain paiement.

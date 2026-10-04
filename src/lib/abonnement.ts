@@ -1,4 +1,5 @@
 import type { Entreprise } from "../types";
+import type { ModuleOffre, OffreAbonnement } from "../services/offresService";
 
 export type StatutAbonnement = "illimite" | "actif" | "alerte" | "expire";
 
@@ -51,54 +52,31 @@ export function calculerStatutAbonnement(entreprise: Entreprise): InfoAbonnement
 }
 
 // =====================================================================
-// NIVEAU D'ACCÈS PAR PALIER D'ABONNEMENT
+// DROITS PAR OFFRE (offres gérées en base par le super admin)
 // =====================================================================
 
-export type NiveauAcces = "basique" | "complet";
-
 /**
- * "essai" et "starter" → accès basique (fonctionnalités restreintes).
- * Toute autre valeur (business, pro, illimité, ou un palier futur) →
- * accès complet par défaut : on ne restreint que ce qui est
- * explicitement nommé "basique", jamais par défaut, pour ne jamais
- * bloquer à tort un client payant sur un palier qu'on ne reconnaît pas.
+ * Module inclus dans l'offre de l'entreprise ? Offre inconnue (pas
+ * encore chargée, ou palier retiré) : accès accordé, pour ne jamais
+ * bloquer à tort un client payant.
  */
-export function niveauAcces(planAbonnement: string): NiveauAcces {
-  return planAbonnement === "essai" || planAbonnement === "starter" ? "basique" : "complet";
+export function moduleInclus(offre: OffreAbonnement | null, module: ModuleOffre): boolean {
+  return !offre || offre.modules.includes(module);
 }
 
 /** Nombre total de comptes utilisateurs autorisés, gérant compris. */
-export function limiteEquipe(planAbonnement: string): number {
-  return niveauAcces(planAbonnement) === "basique" ? 2 : 5;
+export function limiteEquipe(offre: OffreAbonnement | null): number {
+  return offre?.max_utilisateurs ?? 5;
 }
 
-/**
- * Chemins accessibles en accès "basique" (essai/starter) : tableau de
- * bord (rapport quotidien), vente journalière, stock, inventaire,
- * clients, factures, livraisons, tontine, équipe (plafonnée), support,
- * et la gestion de l'abonnement lui-même (pour
- * pouvoir passer sur un palier supérieur). Testé par préfixe pour
- * couvrir les sous-routes (ex : /tontines/:id).
- */
-export const PREFIXES_ROUTES_ACCES_BASIQUE = [
-  "/",
-  "/vente",
-  "/stock",
-  "/inventaire",
-  "/clients",
-  "/factures",
-  "/livraisons",
-  "/tontines",
-  "/clotures",
-  "/equipe",
-  "/mon-abonnement",
-  "/support",
-  "/offres",
-  "/paiement",
+/** Pages réservées aux offres qui incluent le module correspondant. */
+const ROUTES_PAR_MODULE: [string, ModuleOffre][] = [
+  ["/fournisseurs", "fournisseurs"],
+  ["/depot-boissons", "depot_boissons"],
+  ["/depenses", "depenses"],
 ];
 
-export function routeAutoriseeEnAccesBasique(chemin: string): boolean {
-  return PREFIXES_ROUTES_ACCES_BASIQUE.some((prefixe) =>
-    prefixe === "/" ? chemin === "/" : chemin.startsWith(prefixe)
-  );
+export function routeIncluseDansOffre(offre: OffreAbonnement | null, chemin: string): boolean {
+  const regle = ROUTES_PAR_MODULE.find(([prefixe]) => chemin.startsWith(prefixe));
+  return !regle || moduleInclus(offre, regle[1]);
 }

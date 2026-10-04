@@ -48,6 +48,7 @@ const PaiementPage = page(() => import("./features/abonnement/PaiementPage"), "P
 const ParametresPage = page(() => import("./features/parametres/ParametresPage"), "ParametresPage");
 const CloturesPage = page(() => import("./features/clotures/CloturesPage"), "CloturesPage");
 const LandingPage = page(() => import("./features/landing/LandingPage"), "LandingPage");
+const EspaceAgentPage = page(() => import("./features/agent/EspaceAgentPage"), "EspaceAgentPage");
 
 function ChargementPage() {
   return (
@@ -70,6 +71,7 @@ export default function App() {
           <Route path="/conditions-generales" element={<ConditionsGeneralesPage />} />
           <Route path="/installer" element={<InstallerPage />} />
           <Route path="/decouvrir" element={<LandingPage />} />
+          <Route path="/agent" element={<EspaceAgentPage />} />
           <Route path="/completer-inscription" element={<CompleterInscriptionPage />} />
           <Route path="/abonnement-expire" element={<AbonnementExpirePage />} />
           <Route

@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useSearchParams, useNavigate, Navigate } from "react-router-dom";
-import { ArrowLeft, CheckCircle2, ShieldCheck, Smartphone, XCircle } from "lucide-react";
+import { ArrowLeft, CheckCircle2, ShieldCheck, Smartphone, Tag, X, XCircle } from "lucide-react";
+import { apercuPrix, codeMemorise, oublierCodeMemorise, type ApercuPrix } from "../../services/promotionsService";
 import { useAuth } from "../../hooks/useAuth";
 import {
-  trouverOffre,
-  calculerMontant,
   confirmerPaiement,
   formaterTelephoneBenin,
   initierPaiementMomo,
@@ -41,13 +40,87 @@ export function PaiementPage() {
   const [searchParams] = useSearchParams();
   const [methode, setMethode] = useState<Methode>("momo");
 
-  const planId = searchParams.get("plan") as "starter" | "business" | null;
+  const planId = searchParams.get("plan");
   const periode = (searchParams.get("periode") as "mensuel" | "annuel") || "mensuel";
-  const offre = planId ? trouverOffre(planId) : undefined;
-  const montant = offre ? calculerMontant(offre, periode) : 0;
+
+  // Le prix affiché vient du serveur (offre + code promo) : c'est le même
+  // calcul que celui qui sera appliqué au paiement.
+  const [codeSaisi, setCodeSaisi] = useState(codeMemorise());
+  const [codeApplique, setCodeApplique] = useState<string | null>(null);
+  const [prix, setPrix] = useState<ApercuPrix | null>(null);
+  const [erreurCode, setErreurCode] = useState<string | null>(null);
+  const [verificationCode, setVerificationCode] = useState(false);
+
+  useEffect(() => {
+    if (!planId) return;
+    let actif = true;
+    (async () => {
+      const base = await apercuPrix(planId, periode, null).catch(() => ({ erreur: "Offre indisponible." }));
+      if (!actif) return;
+      setPrix(base);
+      // Code transmis par un agent (lien ?code=…) : appliqué d'office.
+      const memorise = codeMemorise();
+      if (memorise && !base.erreur) {
+        const avecCode = await apercuPrix(planId, periode, memorise).catch(() => null);
+        if (actif && avecCode && !avecCode.erreur) {
+          setPrix(avecCode);
+          setCodeApplique(memorise);
+        }
+      }
+    })();
+    return () => {
+      actif = false;
+    };
+  }, [planId, periode]);
+
+  async function appliquerCode() {
+    if (!planId) return;
+    const code = codeSaisi.trim().toUpperCase();
+    if (!code) return;
+    setErreurCode(null);
+    setVerificationCode(true);
+    try {
+      const resultat = await apercuPrix(planId, periode, code);
+      if (resultat.erreur) {
+        setErreurCode(resultat.erreur);
+      } else {
+        setPrix(resultat);
+        setCodeApplique(code);
+      }
+    } catch {
+      setErreurCode("Vérification impossible. Vérifie ta connexion.");
+    } finally {
+      setVerificationCode(false);
+    }
+  }
+
+  async function retirerCode() {
+    if (!planId) return;
+    setCodeApplique(null);
+    setCodeSaisi("");
+    setErreurCode(null);
+    oublierCodeMemorise();
+    setPrix(await apercuPrix(planId, periode, null));
+  }
 
   if (utilisateur && utilisateur.role !== "gerant") return <Navigate to="/" replace />;
-  if (!offre) return <Navigate to="/offres" replace />;
+  if (!planId) return <Navigate to="/offres" replace />;
+  if (!prix) return <div className="p-6 text-sm text-stone-400">Calcul du prix...</div>;
+  if (prix.erreur && !codeApplique) {
+    return (
+      <div className="max-w-md mx-auto px-4 py-8 text-sm">
+        <p className="text-red-600">{prix.erreur}</p>
+        <button onClick={() => navigate("/offres")} className="mt-3 text-amber-600 font-medium">
+          Voir les offres
+        </button>
+      </div>
+    );
+  }
+  const montant = Number(prix.montant);
+  const surReussite = async () => {
+    oublierCodeMemorise();
+    await rafraichirProfil();
+  };
 
   return (
     <div className="max-w-md mx-auto px-4 py-8">
@@ -58,9 +131,62 @@ export function PaiementPage() {
       <div className="bg-white border border-stone-200 rounded-2xl p-5">
         <p className="text-xs font-medium text-stone-500">Récapitulatif</p>
         <p className="font-display text-2xl font-bold text-stone-900 mt-1">
-          {offre.nom} — {periode === "annuel" ? "annuel" : "mensuel"}
+          {prix.offre_nom} — {periode === "annuel" ? "annuel" : "mensuel"}
         </p>
-        <p className="font-display text-4xl font-bold text-amber-600 mt-3">{formatFCFA(montant)}</p>
+        {Number(prix.reduction) > 0 ? (
+          <div className="mt-3">
+            <p className="text-sm text-stone-400 line-through tabular-nums">{formatFCFA(Number(prix.montant_base))}</p>
+            <p className="font-display text-4xl font-bold text-amber-600 tabular-nums">{formatFCFA(montant)}</p>
+            <p className="text-sm text-emerald-700 mt-1">
+              Code {prix.code} : {prix.description_reduction} (économie de {formatFCFA(Number(prix.reduction))})
+            </p>
+          </div>
+        ) : (
+          <p className="font-display text-4xl font-bold text-amber-600 mt-3 tabular-nums">{formatFCFA(montant)}</p>
+        )}
+
+        {/* Code promo */}
+        <div className="mt-4">
+          {codeApplique ? (
+            <div className="flex items-center justify-between gap-2 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
+              <span className="flex items-center gap-2 text-sm text-emerald-800">
+                <Tag size={15} /> {codeApplique}
+              </span>
+              <button onClick={retirerCode} className="p-1 text-emerald-700" aria-label="Retirer le code promo">
+                <X size={16} />
+              </button>
+            </div>
+          ) : (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                appliquerCode();
+              }}
+              className="flex gap-2"
+            >
+              <label htmlFor="code-promo" className="sr-only">
+                Code promo
+              </label>
+              <input
+                id="code-promo"
+                value={codeSaisi}
+                onChange={(e) => setCodeSaisi(e.target.value.toUpperCase())}
+                maxLength={20}
+                autoComplete="off"
+                placeholder="Code promo"
+                className="flex-1 min-w-0 border border-stone-300 rounded-lg py-2 px-3 text-sm uppercase tracking-wide"
+              />
+              <button
+                type="submit"
+                disabled={!codeSaisi.trim() || verificationCode}
+                className="shrink-0 border border-stone-300 rounded-lg px-3 text-sm font-medium text-stone-700 disabled:opacity-50"
+              >
+                {verificationCode ? "..." : "Appliquer"}
+              </button>
+            </form>
+          )}
+          {erreurCode && <p className="text-xs text-red-600 mt-1.5">{erreurCode}</p>}
+        </div>
 
         {MOMO_SANDBOX && (
           <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-4">
@@ -93,21 +219,22 @@ export function PaiementPage() {
 
         {methode === "momo" ? (
           <PaiementMomo
-            plan={offre.id}
+            key={codeApplique ?? "sans-code"}
+            plan={planId}
             periode={periode}
             montant={montant}
+            code={codeApplique}
             telephoneInitial={entreprise?.telephone ?? ""}
-            onReussi={async () => {
-              await rafraichirProfil();
-            }}
+            onReussi={surReussite}
           />
         ) : (
           <PaiementKkiapay
             montant={montant}
-            plan={offre.id}
+            plan={planId}
             periode={periode}
+            code={codeApplique}
             onReussi={async () => {
-              await rafraichirProfil();
+              await surReussite();
               navigate("/mon-abonnement");
             }}
           />
@@ -129,12 +256,14 @@ function PaiementMomo({
   plan,
   periode,
   montant,
+  code,
   telephoneInitial,
   onReussi,
 }: {
-  plan: "starter" | "business";
+  plan: string;
   periode: "mensuel" | "annuel";
   montant: number;
+  code: string | null;
   telephoneInitial: string;
   onReussi: () => Promise<void>;
 }) {
@@ -192,7 +321,7 @@ function PaiementMomo({
     }
     setEnCours(true);
     try {
-      const { paiementId } = await initierPaiementMomo(plan, periode, telephone);
+      const { paiementId } = await initierPaiementMomo(plan, periode, telephone, code);
       setEtape({ nom: "attente", paiementId, telephone: telephoneFormate, depuis: Date.now(), longue: false });
     } catch (err) {
       setErreur((err as Error).message);
@@ -316,11 +445,13 @@ function PaiementKkiapay({
   montant,
   plan,
   periode,
+  code,
   onReussi,
 }: {
   montant: number;
-  plan: "starter" | "business";
+  plan: string;
   periode: "mensuel" | "annuel";
+  code: string | null;
   onReussi: () => Promise<void>;
 }) {
   const { entreprise } = useAuth();
@@ -329,10 +460,10 @@ function PaiementKkiapay({
   const [erreur, setErreur] = useState<string | null>(null);
   // Le script Kkiapay ne permet pas de retirer un écouteur : on les
   // enregistre UNE fois et on lit les valeurs à jour via cette référence.
-  const contexte = useRef({ entreprise, plan, periode, onReussi });
+  const contexte = useRef({ entreprise, plan, periode, code, onReussi });
   useEffect(() => {
-    contexte.current = { entreprise, plan, periode, onReussi };
-  }, [entreprise, plan, periode, onReussi]);
+    contexte.current = { entreprise, plan, periode, code, onReussi };
+  }, [entreprise, plan, periode, code, onReussi]);
 
   useEffect(() => {
     const script = document.createElement("script");
@@ -349,12 +480,12 @@ function PaiementKkiapay({
     if (!scriptCharge || !window.addSuccessListener || !window.addFailedListener) return;
 
     window.addSuccessListener(async (response) => {
-      const { entreprise, plan, periode, onReussi } = contexte.current;
+      const { entreprise, plan, periode, code, onReussi } = contexte.current;
       if (!entreprise) return;
       setEnVerification(true);
       setErreur(null);
       try {
-        await confirmerPaiement(response.transactionId, entreprise.id, plan, periode);
+        await confirmerPaiement(response.transactionId, entreprise.id, plan, periode, code);
         await onReussi();
       } catch (e) {
         setErreur(

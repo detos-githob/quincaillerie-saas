@@ -1,37 +1,7 @@
 import { supabase } from "../lib/supabaseClient";
 
-export interface Offre {
-  id: "starter" | "business";
-  nom: string;
-  description: string;
-  prixMensuel: number;
-  prixAnnuel: number;
-}
-
-export const OFFRES: Offre[] = [
-  {
-    id: "starter",
-    nom: "Starter",
-    description: "Idéal pour un petit commerce",
-    prixMensuel: 3000,
-    prixAnnuel: 35000,
-  },
-  {
-    id: "business",
-    nom: "Business",
-    description: "Le plus populaire — grossistes et semi-grossistes",
-    prixMensuel: 5000,
-    prixAnnuel: 55000,
-  },
-];
-
-export function trouverOffre(id: string): Offre | undefined {
-  return OFFRES.find((o) => o.id === id);
-}
-
-export function calculerMontant(offre: Offre, periodicite: "mensuel" | "annuel"): number {
-  return periodicite === "annuel" ? offre.prixAnnuel : offre.prixMensuel;
-}
+// Les offres et leurs prix sont en base (table « offres ») et se gèrent
+// depuis l'espace super admin : voir services/offresService.ts.
 
 /**
  * Demande à la fonction serveur de vérifier une transaction Kkiapay
@@ -41,8 +11,9 @@ export function calculerMontant(offre: Offre, periodicite: "mensuel" | "annuel")
 export async function confirmerPaiement(
   transactionId: string,
   entrepriseId: string,
-  plan: "starter" | "business",
-  periodicite: "mensuel" | "annuel"
+  plan: string,
+  periodicite: "mensuel" | "annuel",
+  code: string | null = null
 ): Promise<void> {
   const {
     data: { session },
@@ -57,7 +28,7 @@ export async function confirmerPaiement(
         "Content-Type": "application/json",
         Authorization: `Bearer ${session.access_token}`,
       },
-      body: JSON.stringify({ transactionId, entrepriseId, plan, periodicite }),
+      body: JSON.stringify({ transactionId, entrepriseId, plan, periodicite, code }),
     }
   );
 
@@ -92,11 +63,12 @@ async function appelerFonctionMomo<T>(corps: Record<string, unknown>): Promise<T
 }
 
 export function initierPaiementMomo(
-  plan: "starter" | "business",
+  plan: string,
   periodicite: "mensuel" | "annuel",
-  telephone: string
+  telephone: string,
+  code: string | null = null
 ): Promise<{ paiementId: string; dejaEnCours?: boolean }> {
-  return appelerFonctionMomo({ action: "initier", plan, periodicite, telephone });
+  return appelerFonctionMomo({ action: "initier", plan, periodicite, telephone, code });
 }
 
 export function statutPaiementMomo(

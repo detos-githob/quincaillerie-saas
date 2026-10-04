@@ -74,17 +74,13 @@ Deno.serve(async (req: Request) => {
       return reponseErreur("Seul un gérant peut créer un compte d'équipe.", 403);
     }
 
-    // Plafond de comptes selon le palier d'abonnement : on revérifie ici
-    // côté serveur (jamais confiance dans une seule vérification client)
-    // le même calcul que src/lib/abonnement.ts (limiteEquipe).
-    const { data: entrepriseAppelant } = await supabaseAppelant
-      .from("entreprises")
-      .select("plan_abonnement")
-      .eq("id", profilAppelant.entreprise_id)
-      .single();
-
-    const planAbonnement = entrepriseAppelant?.plan_abonnement || "essai";
-    const limiteComptes = planAbonnement === "essai" || planAbonnement === "starter" ? 2 : 5;
+    // Plafond de comptes lu dans l'offre de l'entreprise (table « offres »,
+    // modifiable par le super admin), revérifié ici côté serveur.
+    const supabaseService = createClient(supabaseUrl, serviceRoleKey);
+    const { data: limite } = await supabaseService.rpc("limite_utilisateurs_entreprise", {
+      p_entreprise_id: profilAppelant.entreprise_id,
+    });
+    const limiteComptes = Number(limite ?? 2);
 
     const { count: nombreComptesActuels } = await supabaseAppelant
       .from("utilisateurs")
@@ -93,7 +89,7 @@ Deno.serve(async (req: Request) => {
 
     if ((nombreComptesActuels ?? 0) >= limiteComptes) {
       return reponseErreur(
-        `Limite de ${limiteComptes} comptes atteinte pour ton palier d'abonnement. Passe sur un palier supérieur pour ajouter d'autres membres.`,
+        `Limite de ${limiteComptes} comptes atteinte pour ton palier d'abonnement. Passe sur une offre supérieure pour ajouter d'autres membres.`,
         403
       );
     }

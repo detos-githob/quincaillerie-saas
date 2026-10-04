@@ -11,13 +11,13 @@
 //       → revérifie les paiements en attente des dernières 48 h (cas où
 //         le gérant a fermé la page avant la confirmation).
 //
-// Le prix est fixé ici (TARIFS), jamais par le navigateur.
+// Le prix (offre + code promo) est calculé par la base, jamais par le navigateur.
 //
 // Déploiement : supabase functions deploy momo-paiement-abonnement
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { enTetesCors, reponseJson } from "../_shared/cors.ts";
-import { TARIFS, prixOffre } from "../_shared/tarifs.ts";
+import { calculerPrix } from "../_shared/tarifs.ts";
 import { MOMO_DEVISE, MOMO_SANDBOX, demanderPaiement } from "../_shared/momo.ts";
 import { normaliserTelephoneBenin } from "../_shared/telephone.ts";
 import { synchroniserPaiementMomo, type PaiementAbonnement } from "../_shared/synchroniserPaiement.ts";
@@ -55,8 +55,11 @@ Deno.serve(async (req: Request) => {
 
     // ------------------------------------------------------------------
     if (corps.action === "initier") {
-      const montant = prixOffre(corps.plan, corps.periodicite);
-      if (montant === null) return reponseJson(req, { error: "Offre invalide." }, 400);
+      const { prix, erreur: erreurPrix } = await calculerPrix(
+        admin, profil.entreprise_id, corps.plan, corps.periodicite, corps.code
+      );
+      if (!prix) return reponseJson(req, { error: erreurPrix }, 400);
+      const montant = prix.montant;
 
       const telephone = normaliserTelephoneBenin(corps.telephone, MOMO_SANDBOX);
       if (!telephone) {
@@ -85,6 +88,9 @@ Deno.serve(async (req: Request) => {
           plan: corps.plan,
           periodicite: corps.periodicite,
           montant,
+          montant_avant_promo: prix.montantBase,
+          reduction: prix.reduction,
+          code_promo_id: prix.codePromoId,
           devise: MOMO_DEVISE,
           telephone,
           cree_par: profil.id,
@@ -93,7 +99,6 @@ Deno.serve(async (req: Request) => {
         .single();
       if (erreurInsertion || !paiement) return reponseJson(req, { error: "Enregistrement du paiement impossible." }, 500);
 
-      const offre = TARIFS[corps.plan];
       const callbackUrl =
         Deno.env.get("MOMO_CALLBACK_ACTIF") === "true"
           ? `${supabaseUrl}/functions/v1/momo-callback?ref=${paiement.id}`
@@ -104,7 +109,7 @@ Deno.serve(async (req: Request) => {
           referenceId: paiement.id,
           montant,
           telephone,
-          messagePayeur: `Abonnement Akweo ${offre.nom} ${corps.periodicite}`,
+          messagePayeur: `Abonnement Akweo ${prix.offreNom} ${corps.periodicite}`,
           notePayee: `Akweo ${profil.entreprise_id.slice(0, 8)}`,
           callbackUrl,
         });
