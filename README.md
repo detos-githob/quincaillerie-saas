@@ -98,6 +98,8 @@ suite.
      atomiques (variation appliquée par le serveur) et hors ligne
    - `migration_offres_promotions.sql` — offres gérées par le super admin,
      agents commerciaux, codes promo et commissions
+   - `migration_secteurs_par_offre.sql` — nombre d'activités (secteurs)
+     cumulables par offre, réglable par le super admin
 
    ⚠️ Les 3 migrations `ledger_creances` / `annulation_avoir` /
    `dashboard_decisionnel` touchent la fonction `creer_vente` en cascade

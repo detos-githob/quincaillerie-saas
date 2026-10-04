@@ -306,3 +306,24 @@ Mot de passe provisoire affiché une seule fois à la création ; l'agent le cha
   par le serveur. Comme avant cette version, les tables des modules avancés ne sont pas encore verrouillées côté
   base selon l'offre : c'est une amélioration possible.
 - Changer un prix n'affecte pas l'échéance des abonnés : le nouveau prix s'applique à leur prochain paiement.
+
+---
+
+# Nombre d'activités (secteurs) par offre
+
+## À faire
+1. Exécuter `supabase/migration_secteurs_par_offre.sql` dans le SQL Editor (après `migration_offres_promotions.sql`).
+2. Déployer le site. Aucune Edge Function à redéployer.
+
+## Fonctionnement
+- Réglages par défaut : Essai et Starter = 1 activité ; Business et Pro = 3 activités.
+- **Super admin → Offres et tarifs → modifier une offre → « Nombre d'activités cumulables »** (1 à 5).
+  Le changement s'applique tout de suite : page Paramètres des commerçants, page Offres et page d'accueil
+  (la ligne « 1 activité » / « Jusqu'à N activités » est ajoutée automatiquement aux avantages affichés).
+- **Paramètres (gérant)** : compteur « 1/1 activité », les activités non incluses sont grisées avec un cadenas,
+  et un lien propose l'offre la moins chère qui en permet plus.
+- **Sécurité** : la limite est vérifiée par la base de données (déclencheur sur `entreprises`), pas seulement à
+  l'écran. Un gérant ne peut pas la contourner.
+- **Après un passage à une offre inférieure** : rien n'est supprimé. Le menu n'affiche que les N premières
+  activités (la principale d'abord) et le gérant est invité à décocher celles en trop. Il peut toujours en retirer,
+  jamais en ajouter au-delà de la limite.

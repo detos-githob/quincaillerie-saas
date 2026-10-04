@@ -3,6 +3,7 @@ import { useNavigate, Navigate } from "react-router-dom";
 import { Check } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
 import {
+  avantagesAffiches,
   economieAnnuelle,
   listerOffresPubliques,
   prixOffre,
@@ -93,7 +94,7 @@ export function OffresPage() {
               </p>
 
               <ul className="mt-4 space-y-1.5 flex-1">
-                {offre.avantages.map((f) => (
+                {avantagesAffiches(offre).map((f) => (
                   <li key={f} className="flex items-start gap-2 text-sm text-stone-600">
                     <Check size={14} className="text-emerald-500 shrink-0 mt-0.5" />
                     {f}

@@ -17,6 +17,8 @@ export interface OffreAbonnement {
   prix_mensuel: number;
   prix_annuel: number;
   max_utilisateurs: number;
+  /** Activités (secteurs) exploitables en même temps, principale comprise. */
+  max_secteurs: number;
   modules: ModuleOffre[];
   avantages: string[];
   est_essai: boolean;
@@ -28,7 +30,7 @@ export interface OffreAbonnement {
 }
 
 function normaliser(o: OffreAbonnement): OffreAbonnement {
-  return { ...o, prix_mensuel: Number(o.prix_mensuel), prix_annuel: Number(o.prix_annuel) };
+  return { ...o, prix_mensuel: Number(o.prix_mensuel), prix_annuel: Number(o.prix_annuel), max_secteurs: Number(o.max_secteurs ?? 1) };
 }
 
 /** Toutes les offres (super admin), triées. */
@@ -66,4 +68,14 @@ export function prixOffre(offre: OffreAbonnement, periodicite: "mensuel" | "annu
 /** Économie annuelle par rapport à 12 mois au tarif mensuel. */
 export function economieAnnuelle(offre: OffreAbonnement): number {
   return Math.max(0, offre.prix_mensuel * 12 - offre.prix_annuel);
+}
+
+/** « 1 activité » / « Jusqu'à 3 activités » : affiché sur les forfaits. */
+export function libelleSecteurs(n: number): string {
+  return n <= 1 ? "1 activité (ex : quincaillerie)" : `Jusqu'à ${n} activités en même temps`;
+}
+
+/** Avantages affichés : nombre d'activités (réglage de l'offre) en tête. */
+export function avantagesAffiches(offre: OffreAbonnement): string[] {
+  return [libelleSecteurs(offre.max_secteurs ?? 1), ...offre.avantages];
 }

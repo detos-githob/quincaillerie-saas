@@ -20,7 +20,7 @@ import logoAkweo from "../../assets/logo-akweo.png";
 import logoMarque from "../../assets/logo-akweo-mark.png";
 import { PolicesAkweo } from "../../components/layout/AuthLayout";
 import { useInstallation } from "../../hooks/useInstallation";
-import { economieAnnuelle, listerOffresPubliques, type OffreAbonnement } from "../../services/offresService";
+import { avantagesAffiches, economieAnnuelle, listerOffresPubliques, type OffreAbonnement } from "../../services/offresService";
 import { EDITEUR } from "../../lib/legal";
 import { TicketCaisse } from "./TicketCaisse";
 
@@ -621,7 +621,7 @@ function Tarifs({ catalogue }: { catalogue: { essai: OffreAbonnement | null; off
               montant="0 F"
               periode={`pendant ${jours} jours`}
               pour={essai.description}
-              points={essai.avantages}
+              points={avantagesAffiches(essai)}
               action="Commencer l'essai"
             />
           )}
@@ -643,7 +643,7 @@ function Tarifs({ catalogue }: { catalogue: { essai: OffreAbonnement | null; off
                     : undefined
                 }
                 pour={o.description}
-                points={o.avantages}
+                points={avantagesAffiches(o)}
                 action={`Choisir ${o.nom}`}
               />
             );

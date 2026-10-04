@@ -29,6 +29,7 @@ import { useSyncHorsLigne } from "../../hooks/useSyncHorsLigne";
 import { IndicateurSynchro } from "./IndicateurSynchro";
 import { useInstallation } from "../../hooks/useInstallation";
 import { moduleInclus } from "../../lib/abonnement";
+import { secteursEffectifs } from "../../lib/secteurActivite";
 import { peutAcceder } from "../../lib/permissions";
 import logoMarque from "../../assets/logo-akweo-mark.png";
 
@@ -53,11 +54,8 @@ export function AppShell() {
   const location = useLocation();
   const [menuPlusOuvert, setMenuPlusOuvert] = useState(false);
 
-  const secteursActifs = entreprise?.secteurs_actifs?.length
-    ? entreprise.secteurs_actifs
-    : entreprise
-      ? [entreprise.secteur_activite]
-      : [];
+  // Activités ouvertes, dans la limite de l'offre de l'entreprise.
+  const secteursActifs = secteursEffectifs(entreprise, offre);
   // Livraison est utile dès qu'il y a de la marchandise à livrer :
   // quincaillerie (gros/demi-gros) et/ou dépôt de boissons (casiers) —
   // gestion multi-activités : les deux peuvent être actifs à la fois.

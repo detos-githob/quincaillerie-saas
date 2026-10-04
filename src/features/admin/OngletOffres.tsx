@@ -71,6 +71,7 @@ export function OngletOffres() {
             )}
             <p className="text-xs text-stone-500 mt-1">
               {o.max_utilisateurs} compte{o.max_utilisateurs > 1 ? "s" : ""}
+              {` · ${o.max_secteurs ?? 1} activité${(o.max_secteurs ?? 1) > 1 ? "s" : ""}`}
               {o.modules.length > 0
                 ? ` · ${o.modules.map((m) => MODULES_OFFRE.find((x) => x.id === m)?.label).join(", ")}`
                 : " · modules de base"}
@@ -129,6 +130,7 @@ function ModaleOffre({
   const [prixMensuel, setPrixMensuel] = useState(String(offre?.prix_mensuel ?? ""));
   const [prixAnnuel, setPrixAnnuel] = useState(String(offre?.prix_annuel ?? ""));
   const [maxUtilisateurs, setMaxUtilisateurs] = useState(String(offre?.max_utilisateurs ?? 2));
+  const [maxSecteurs, setMaxSecteurs] = useState(String(offre?.max_secteurs ?? 1));
   const [modules, setModules] = useState<ModuleOffre[]>(offre?.modules ?? []);
   const [avantages, setAvantages] = useState((offre?.avantages ?? []).join("\n"));
   const [publique, setPublique] = useState(offre?.publique ?? true);
@@ -150,6 +152,7 @@ function ModaleOffre({
         prix_mensuel: Number(prixMensuel) || 0,
         prix_annuel: Number(prixAnnuel) || 0,
         max_utilisateurs: Number(maxUtilisateurs) || 1,
+        max_secteurs: Math.min(5, Math.max(1, Number(maxSecteurs) || 1)),
         modules,
         avantages: avantages.split("\n").map((l) => l.trim()).filter(Boolean),
         publique,
@@ -243,6 +246,21 @@ function ModaleOffre({
         <label className="block">
           <span className="text-xs font-medium text-stone-500">Nombre de comptes utilisateurs (gérant compris)</span>
           <input type="number" min={1} max={500} value={maxUtilisateurs} onChange={(e) => setMaxUtilisateurs(e.target.value)} className={champ} />
+        </label>
+
+        <label className="block">
+          <span className="text-xs font-medium text-stone-500">Nombre d'activités (secteurs) cumulables</span>
+          <select value={maxSecteurs} onChange={(e) => setMaxSecteurs(e.target.value)} className={champ}>
+            {[1, 2, 3, 4, 5].map((n) => (
+              <option key={n} value={n}>
+                {n === 1 ? "1 seule activité" : `Jusqu'à ${n} activités`}
+              </option>
+            ))}
+          </select>
+          <span className="text-[11px] text-stone-400">
+            Ex : quincaillerie + dépôt de boissons = 2 activités. Affiché automatiquement dans les forfaits et
+            appliqué aussitôt aux commerces abonnés.
+          </span>
         </label>
 
         <fieldset>
