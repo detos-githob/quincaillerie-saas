@@ -1,11 +1,17 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Search, Plus, Minus, X, ChevronUp, Check } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
 import { listerArticles } from "../../services/articlesService";
 import { listerClients, creerClient } from "../../services/clientsService";
 import { enregistrerVente } from "../../services/ventesService";
+import { listerComptesPaiement, type ComptePaiement } from "../../services/paiementsElectroniquesService";
+import { PaiementMobileMoney } from "./PaiementMobileMoney";
 import { prixUnitaireApplicable, LABELS_TYPE_CLIENT } from "../../lib/tarification";
 import type { Article, Client, ModePaiement, TypeClient, TypeFacture } from "../../types";
+
+function formatQuantite(q: number): string {
+  return Math.max(0, q).toLocaleString("fr-FR", { maximumFractionDigits: 2 });
+}
 
 function formatFCFA(montant: number): string {
   return Math.round(montant).toLocaleString("fr-FR") + " F";
@@ -32,6 +38,22 @@ export function VentePage() {
   const [enCours, setEnCours] = useState(false);
   const [messageFinal, setMessageFinal] = useState<string | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
+  const [comptesPaiement, setComptesPaiement] = useState<ComptePaiement[]>([]);
+  const [panierVerrouille, setPanierVerrouille] = useState(false);
+  const [enLigne, setEnLigne] = useState(navigator.onLine);
+  const verrouiller = useCallback((v: boolean) => setPanierVerrouille(v), []);
+
+  useEffect(() => {
+    // Comptes marchands configurés par le gérant (MTN, Moov, Celtiis…).
+    listerComptesPaiement().then(setComptesPaiement).catch(() => setComptesPaiement([]));
+    const maj = () => setEnLigne(navigator.onLine);
+    window.addEventListener("online", maj);
+    window.addEventListener("offline", maj);
+    return () => {
+      window.removeEventListener("online", maj);
+      window.removeEventListener("offline", maj);
+    };
+  }, []);
 
   useEffect(() => {
     Promise.all([listerArticles(), listerClients()])
@@ -76,6 +98,9 @@ export function VentePage() {
   }
 
   const total = panier.reduce((s, l) => s + prixLigne(l) * l.quantite, 0);
+  const comptesActifs = comptesPaiement.filter((c) => c.actif);
+  const paiementElectronique = modePaiement === "mobile_money" && comptesActifs.length > 0 && (enLigne || panierVerrouille);
+  const telephoneClient = nouveauClientTelephone.trim() || clients.find((c) => c.id === clientId)?.telephone || "";
   const nombreArticles = panier.reduce((s, l) => s + l.quantite, 0);
 
   function ajouterAuPanier(article: Article) {
@@ -114,7 +139,7 @@ export function VentePage() {
     setPanier((prev) => prev.filter((l) => l.article.id !== articleId));
   }
 
-  async function validerVente() {
+  async function validerVente(paiementId: string | null = null) {
     if (!entreprise || panier.length === 0) return;
     setEnCours(true);
     setErreur(null);
@@ -139,6 +164,7 @@ export function VentePage() {
         p_utilisateur_id: utilisateur?.id || null,
         p_mode_paiement: modePaiement,
         p_type_facture: typeFacture,
+        ...(paiementId ? { p_paiement_id: paiementId } : {}),
         p_lignes: panier.map((l) => ({
           article_id: l.article.id,
           designation: l.article.designation,
@@ -174,6 +200,7 @@ export function VentePage() {
         setNouveauClientTelephone("");
         setModePaiement("especes");
         setTypeFacture("simple");
+        setPanierVerrouille(false);
       }, 1800);
     } catch (e: any) {
       setErreur(e.message || "Erreur lors de l'enregistrement de la vente.");
@@ -233,18 +260,34 @@ export function VentePage() {
                   rupture ? "border-stone-200 opacity-50 cursor-not-allowed" : "border-stone-200 hover:border-stone-300 hover:shadow-sm"
                 } ${enPanier ? "ring-2 ring-amber-500" : ""}`}
               >
-                <div>
-                  <p className="text-sm font-semibold text-stone-900 leading-snug">{article.designation}</p>
-                  {rupture && (
-                    <span className="inline-block mt-1 text-[11px] font-semibold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">
-                      Rupture de stock
-                    </span>
-                  )}
-                  {stockFaible && !rupture && (
-                    <span className="inline-block mt-1 text-[11px] font-semibold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">
-                      Stock faible · {article.stock_actuel} {article.unite}
-                    </span>
-                  )}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-stone-900 leading-snug">{article.designation}</p>
+                    {rupture && (
+                      <span className="inline-block mt-1 text-[11px] font-semibold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">
+                        Rupture de stock
+                      </span>
+                    )}
+                    {stockFaible && !rupture && (
+                      <span className="inline-block mt-1 text-[11px] font-semibold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">
+                        Stock faible
+                      </span>
+                    )}
+                  </div>
+                  {/* Stock restant, en haut à droite, au-dessus du bouton + */}
+                  <span
+                    title="Stock restant"
+                    className={`shrink-0 text-[11px] font-semibold tabular-nums px-1.5 py-0.5 rounded-md border leading-tight text-right ${
+                      rupture
+                        ? "bg-red-50 text-red-700 border-red-200"
+                        : stockFaible
+                          ? "bg-amber-50 text-amber-800 border-amber-200"
+                          : "bg-stone-50 text-stone-600 border-stone-200"
+                    }`}
+                  >
+                    {formatQuantite(article.stock_actuel - (enPanier?.quantite ?? 0))}
+                    <span className="block text-[9px] font-medium opacity-75">{article.unite}</span>
+                  </span>
                 </div>
                 <div className="flex items-end justify-between mt-2">
                   <span className="font-display text-xl font-bold text-stone-900">
@@ -289,11 +332,16 @@ export function VentePage() {
       {/* Panneau panier */}
       {cartOuvert && (
         <div className="fixed inset-0 z-40 flex flex-col justify-end">
-          <div className="absolute inset-0 bg-navy/40" onClick={() => setCartOuvert(false)} />
+          <div className="absolute inset-0 bg-navy/40" onClick={() => !panierVerrouille && setCartOuvert(false)} />
           <div className="relative bg-white rounded-t-2xl max-h-[85vh] flex flex-col sm:max-w-md sm:mx-auto sm:w-full">
             <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-stone-100">
               <h2 className="font-display text-xl font-bold text-stone-900">Panier ({nombreArticles})</h2>
-              <button onClick={() => setCartOuvert(false)} className="text-stone-400 hover:text-stone-700">
+              <button
+                onClick={() => !panierVerrouille && setCartOuvert(false)}
+                disabled={panierVerrouille}
+                title={panierVerrouille ? "Paiement Mobile Money en cours" : undefined}
+                className="text-stone-400 hover:text-stone-700 disabled:opacity-30"
+              >
                 <X size={22} />
               </button>
             </div>
@@ -314,7 +362,7 @@ export function VentePage() {
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button onClick={() => changerQuantite(ligne.article.id, -1)} className="w-7 h-7 flex items-center justify-center rounded-full border border-stone-300 text-stone-600">
+                    <button disabled={panierVerrouille} onClick={() => changerQuantite(ligne.article.id, -1)} className="disabled:opacity-40 w-7 h-7 flex items-center justify-center rounded-full border border-stone-300 text-stone-600">
                       <Minus size={14} />
                     </button>
                     <input
@@ -324,15 +372,16 @@ export function VentePage() {
                       value={ligne.quantite}
                       onChange={(e) => definirQuantite(ligne.article.id, e.target.value)}
                       onFocus={(e) => e.target.select()}
+                      disabled={panierVerrouille}
                       className="w-12 text-center text-sm font-semibold border border-stone-300 rounded-lg py-1"
                     />
-                    <button onClick={() => changerQuantite(ligne.article.id, 1)} className="w-7 h-7 flex items-center justify-center rounded-full border border-stone-300 text-stone-600">
+                    <button disabled={panierVerrouille} onClick={() => changerQuantite(ligne.article.id, 1)} className="disabled:opacity-40 w-7 h-7 flex items-center justify-center rounded-full border border-stone-300 text-stone-600">
                       <Plus size={14} />
                     </button>
                     <span className="font-display text-lg font-bold text-stone-900 w-20 text-right">
                       {formatFCFA(prixApplique * ligne.quantite)}
                     </span>
-                    <button onClick={() => retirerDuPanier(ligne.article.id)} className="text-stone-300 hover:text-red-500 ml-1">
+                    <button disabled={panierVerrouille} onClick={() => retirerDuPanier(ligne.article.id)} className="text-stone-300 hover:text-red-500 ml-1 disabled:opacity-30">
                       <X size={16} />
                     </button>
                   </div>
@@ -407,6 +456,7 @@ export function VentePage() {
                   ).map((m) => (
                     <button
                       key={m.id}
+                      disabled={panierVerrouille}
                       onClick={() => setModePaiement(m.id)}
                       className={`py-2 rounded-lg text-sm font-medium border ${
                         modePaiement === m.id ? "bg-slate-700 text-white border-slate-700" : "bg-white text-stone-600 border-stone-300"
@@ -452,21 +502,40 @@ export function VentePage() {
 
               {erreur && <p className="text-sm text-red-600">{erreur}</p>}
 
-              <button
-                onClick={validerVente}
-                disabled={enCours || !!messageFinal}
-                className="w-full bg-amber-500 hover:bg-amber-600 text-stone-900 font-semibold py-3.5 rounded-xl flex items-center justify-center gap-2 disabled:opacity-70"
-              >
-                {messageFinal ? (
-                  <>
-                    <Check size={18} /> {messageFinal}
-                  </>
-                ) : enCours ? (
-                  "Enregistrement..."
-                ) : (
-                  "Encaisser"
-                )}
-              </button>
+              {paiementElectronique ? (
+                <PaiementMobileMoney
+                  comptes={comptesActifs}
+                  total={total}
+                  telephoneInitial={telephoneClient}
+                  enCoursVente={enCours}
+                  messageFinal={messageFinal}
+                  onEncaisser={validerVente}
+                  onVerrouillage={verrouiller}
+                />
+              ) : (
+                <>
+                  {modePaiement === "mobile_money" && comptesActifs.length > 0 && !enLigne && (
+                    <p className="text-[11px] text-amber-700">
+                      Hors connexion : la demande de paiement électronique est indisponible. Encaisse seulement si le client a déjà payé.
+                    </p>
+                  )}
+                  <button
+                    onClick={() => validerVente()}
+                    disabled={enCours || !!messageFinal}
+                    className="w-full bg-amber-500 hover:bg-amber-600 text-stone-900 font-semibold py-3.5 rounded-xl flex items-center justify-center gap-2 disabled:opacity-70"
+                  >
+                    {messageFinal ? (
+                      <>
+                        <Check size={18} /> {messageFinal}
+                      </>
+                    ) : enCours ? (
+                      "Enregistrement..."
+                    ) : (
+                      "Encaisser"
+                    )}
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>

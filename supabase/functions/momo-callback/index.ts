@@ -33,6 +33,7 @@ Deno.serve(async (req: Request) => {
       .select("*")
       .eq("id", reference)
       .eq("fournisseur", "mtn_momo")
+      .is("moyen_id", null)
       .in("statut", ["en_attente", "expire"])
       .maybeSingle();
 

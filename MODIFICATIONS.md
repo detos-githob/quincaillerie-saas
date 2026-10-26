@@ -327,3 +327,84 @@ Mot de passe provisoire affiché une seule fois à la création ; l'agent le cha
 - **Après un passage à une offre inférieure** : rien n'est supprimé. Le menu n'affiche que les N premières
   activités (la principale d'abord) et le gérant est invité à décocher celles en trop. Il peut toujours en retirer,
   jamais en ajouter au-delà de la limite.
+
+---
+
+# Paiement électronique des ventes (MTN Mobile Money, Moov Money, Celtiis Cash)
+
+## À faire, dans cet ordre
+1. Exécuter `supabase/migration_paiements_vente.sql` dans le SQL Editor (après `migration_secteurs_par_offre.sql`).
+2. Créer la clé de chiffrement des clés API des commerçants (une seule fois, à ne JAMAIS changer ensuite) :
+   ```
+   node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+   npx supabase secrets set CLE_CHIFFREMENT_PAIEMENTS=<la valeur affichée>
+   ```
+3. Déployer les 2 nouvelles Edge Functions :
+   ```
+   npx supabase functions deploy comptes-paiement --use-api
+   npx supabase functions deploy paiement-vente --use-api
+   ```
+4. Déployer le site.
+
+## Fonctionnement
+- **Paramètres → Paiements électroniques** (gérant uniquement, jamais délégable) : « Ajouter », puis choisir
+  - **FedaPay (recommandé)** : un seul compte pour MTN, Moov et Celtiis. Coller la clé secrète (`sk_sandbox_…` en test,
+    `sk_live_…` en réel). L'argent arrive sur le solde FedaPay du commerçant, retirable vers son Mobile Money ou sa banque.
+  - **MTN MoMo (API directe)** : clé d'abonnement Collections, API User et API Key du compte marchand MTN du commerçant.
+  Les clés sont testées auprès du fournisseur avant l'enregistrement, puis chiffrées (AES-256). Elles ne sont plus jamais
+  affichées. Boutons : Tester, Modifier, Désactiver, Supprimer. Liste des derniers paiements avec bouton « revérifier ».
+- **Caisse** : « Mobile Money » affiche les opérateurs configurés + « Déjà reçu » (encaissement manuel comme avant).
+  Le vendeur choisit l'opérateur, saisit le numéro (pré-rempli avec celui du client), « Envoyer la demande ».
+  Le client confirme avec son code secret sur son téléphone ; dès la confirmation, la vente et la facture sont créées
+  automatiquement. Pendant l'attente, le panier est figé et ne peut pas être fermé. « Annuler la demande » possible.
+- Sans compte configuré, ou hors connexion, « Mobile Money » fonctionne comme avant (encaissement manuel).
+
+## Sécurité
+- Le statut d'un paiement est toujours relu chez le fournisseur par le serveur, jamais fourni par le navigateur.
+- La base refuse de créer une vente avec un paiement non confirmé, déjà utilisé, d'une autre entreprise, ou d'un montant
+  inférieur au total de la vente (la vente, le stock et la facture sont alors annulés).
+- Les clés ne sont lisibles que par les Edge Functions (table `comptes_paiement_secrets` sans aucun accès navigateur).
+
+## À savoir
+- Tester d'abord en mode **Test** avec un compte FedaPay sandbox et les numéros de test indiqués dans la documentation
+  FedaPay, avant de passer en **Production**.
+- Un avoir (annulation) sur une vente payée électroniquement ne rembourse pas automatiquement le client : le
+  remboursement se fait depuis le tableau de bord FedaPay / MTN.
+- Les frais de transaction sont ceux du fournisseur choisi (voir la grille tarifaire FedaPay ou MTN).
+
+---
+
+# Stock sur les cartes, moyens de paiement des abonnements et comptes inactifs (super admin)
+
+## À faire, dans cet ordre
+1. Exécuter `supabase/migration_admin_paiements_comptes.sql` dans le SQL Editor (après `migration_paiements_vente.sql`).
+2. Déployer les 3 nouvelles Edge Functions et les 2 modifiées :
+   ```
+   npx supabase functions deploy admin-moyens-paiement --use-api
+   npx supabase functions deploy paiement-abonnement --use-api
+   npx supabase functions deploy admin-supprimer-entreprise --use-api
+   npx supabase functions deploy momo-paiement-abonnement --use-api
+   npx supabase functions deploy momo-callback --use-api --no-verify-jwt
+   ```
+   (Le secret `CLE_CHIFFREMENT_PAIEMENTS` créé pour les paiements des ventes sert aussi ici.)
+3. Déployer le site.
+
+## Fonctionnement
+- **Caisse** : chaque carte produit affiche le stock restant en haut à droite, au-dessus du « + » (gris normal,
+  orange stock faible, rouge rupture). Le chiffre baisse dès qu'on ajoute l'article au panier.
+- **Super admin → Moyens de paiement** : ajouter, tester, modifier, activer/désactiver, supprimer les moyens proposés
+  aux commerçants pour payer leur abonnement :
+  - **FedaPay** : MTN Mobile Money, Moov Money, Celtiis Cash (demande sur le téléphone) et « Autres pays et cartes
+    bancaires » (page de paiement FedaPay : Mobile Money des autres pays de la zone, Visa, Mastercard).
+  - **MTN MoMo (API directe)** et **Kkiapay** (clé publique + clé privée).
+  Les clés sont testées puis chiffrées. Tant qu'aucun moyen n'est actif, la page de paiement garde l'ancienne
+  configuration (secrets MTN et Kkiapay) ; dès qu'un moyen est actif, seuls les moyens de la liste sont proposés.
+- **Super admin → Comptes inactifs** : liste des comptes suspendus ou expirés depuis 30, 60, 90 ou 180 jours, avec
+  dernière vente et dernière connexion. « Supprimer » demande de retaper le nom de l'entreprise, puis efface toutes ses
+  données et les comptes de connexion de ses membres. Chaque suppression est journalisée.
+
+## Sécurité
+- Réservé au super admin (vérifié par la base et par les Edge Functions).
+- Une entreprise active ne peut pas être supprimée : il faut qu'elle soit suspendue ou expirée depuis 30 jours au moins.
+- Le compte d'un super admin ou d'un agent commercial n'est jamais effacé, même s'il était membre de l'entreprise.
+- Le prix d'un abonnement est toujours calculé par la base ; le statut d'un paiement toujours relu chez le fournisseur.

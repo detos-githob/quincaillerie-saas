@@ -1,3 +1,5 @@
+import { OngletMoyensPaiement } from "./OngletMoyensPaiement";
+import { OngletInactifs } from "./OngletInactifs";
 import { useEffect, useMemo, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { Building2, X, Bell } from "lucide-react";
@@ -11,12 +13,14 @@ import { OngletOffres } from "./OngletOffres";
 import { OngletPromotions } from "./OngletPromotions";
 import { OngletCommissions } from "./OngletCommissions";
 
-type Onglet = "entreprises" | "offres" | "promotions" | "commissions";
+type Onglet = "entreprises" | "offres" | "promotions" | "commissions" | "paiements" | "inactifs";
 const ONGLETS: [Onglet, string][] = [
   ["entreprises", "Entreprises"],
   ["offres", "Offres et tarifs"],
   ["promotions", "Agents et codes promo"],
   ["commissions", "Commissions"],
+  ["paiements", "Moyens de paiement"],
+  ["inactifs", "Comptes inactifs"],
 ];
 
 const MS_48H = 48 * 60 * 60 * 1000;
@@ -214,6 +218,16 @@ export function AdminPage() {
       {onglet === "promotions" && (
         <main className="max-w-4xl mx-auto px-4 py-5">
           <OngletPromotions />
+        </main>
+      )}
+      {onglet === "paiements" && (
+        <main className="max-w-4xl mx-auto px-4 py-5">
+          <OngletMoyensPaiement />
+        </main>
+      )}
+      {onglet === "inactifs" && (
+        <main className="max-w-4xl mx-auto px-4 py-5">
+          <OngletInactifs />
         </main>
       )}
       {onglet === "commissions" && (

@@ -12,6 +12,8 @@ export interface PayloadVente {
   p_mode_paiement: ModePaiement;
   p_lignes: LigneVenteInput[];
   p_type_facture: TypeFacture;
+  /** Paiement électronique confirmé (MTN / Moov / Celtiis) à rattacher à la vente. */
+  p_paiement_id?: string | null;
 }
 
 export interface ResultatVente {

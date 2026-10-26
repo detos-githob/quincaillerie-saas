@@ -153,6 +153,7 @@ Deno.serve(async (req: Request) => {
         .select("*")
         .eq("entreprise_id", profil.entreprise_id)
         .eq("fournisseur", "mtn_momo")
+        .is("moyen_id", null) // les moyens configurés par le super admin passent par paiement-abonnement
         .in("statut", ["en_attente", "expire"])
         .gte("created_at", new Date(Date.now() - 48 * 3600 * 1000).toISOString())
         .limit(10);

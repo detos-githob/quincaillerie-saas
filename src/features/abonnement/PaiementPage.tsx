@@ -9,6 +9,8 @@ import {
   initierPaiementMomo,
   statutPaiementMomo,
 } from "../../services/abonnementService";
+import { listerMoyensPlateforme, type MoyenPaiementPlateforme } from "../../services/plateformePaiementsService";
+import { PaiementPlateforme } from "./PaiementPlateforme";
 
 declare global {
   interface Window {
@@ -39,6 +41,15 @@ export function PaiementPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [methode, setMethode] = useState<Methode>("momo");
+  // Moyens configurés par le super admin ; tant qu'aucun n'est actif, on garde
+  // la configuration d'origine (MTN MoMo + Kkiapay des secrets).
+  const [moyensPlateforme, setMoyensPlateforme] = useState<MoyenPaiementPlateforme[] | null>(null);
+  useEffect(() => {
+    listerMoyensPlateforme()
+      .then((m) => setMoyensPlateforme(m.filter((x) => x.actif)))
+      .catch(() => setMoyensPlateforme([]));
+  }, []);
+  const paiementRetour = searchParams.get("retour");
 
   const planId = searchParams.get("plan");
   const periode = (searchParams.get("periode") as "mensuel" | "annuel") || "mensuel";
@@ -105,7 +116,8 @@ export function PaiementPage() {
 
   if (utilisateur && utilisateur.role !== "gerant") return <Navigate to="/" replace />;
   if (!planId) return <Navigate to="/offres" replace />;
-  if (!prix) return <div className="p-6 text-sm text-stone-400">Calcul du prix...</div>;
+  if (!prix || moyensPlateforme === null) return <div className="p-6 text-sm text-stone-400">Calcul du prix...</div>;
+  const plateforme = moyensPlateforme.length > 0;
   if (prix.erreur && !codeApplique) {
     return (
       <div className="max-w-md mx-auto px-4 py-8 text-sm">
@@ -188,13 +200,27 @@ export function PaiementPage() {
           {erreurCode && <p className="text-xs text-red-600 mt-1.5">{erreurCode}</p>}
         </div>
 
-        {MOMO_SANDBOX && (
+        {plateforme && (
+          <PaiementPlateforme
+            key={codeApplique ?? "sans-code"}
+            moyens={moyensPlateforme}
+            plan={planId}
+            periode={periode}
+            montant={montant}
+            code={codeApplique}
+            telephoneInitial={entreprise?.telephone ?? ""}
+            paiementRetour={paiementRetour}
+            onReussi={surReussite}
+          />
+        )}
+
+        {!plateforme && MOMO_SANDBOX && (
           <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-4">
             Mode test MTN : aucun argent réel n'est débité. Utilise un numéro de test MTN.
           </p>
         )}
 
-        {KKIAPAY_DISPONIBLE && (
+        {!plateforme && KKIAPAY_DISPONIBLE && (
           <div className="grid grid-cols-2 gap-2 mt-5" role="radiogroup" aria-label="Moyen de paiement">
             {(
               [
@@ -217,7 +243,7 @@ export function PaiementPage() {
           </div>
         )}
 
-        {methode === "momo" ? (
+        {plateforme ? null : methode === "momo" ? (
           <PaiementMomo
             key={codeApplique ?? "sans-code"}
             plan={planId}

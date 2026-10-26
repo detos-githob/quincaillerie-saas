@@ -29,6 +29,7 @@ export interface PayloadVente {
   p_mode_paiement: string;
   p_type_facture: string;
   p_lignes: Array<Record<string, unknown>>;
+  p_paiement_id?: string | null;
 }
 
 export interface ClientHorsLigne {

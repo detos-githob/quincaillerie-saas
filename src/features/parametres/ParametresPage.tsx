@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Settings, Check, Lock, Sparkles, AlertTriangle } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
+import { CartePaiementsElectroniques } from "./CartePaiementsElectroniques";
 import { modifierSecteursActifs } from "../../services/entrepriseService";
 import { listerOffresPubliques, type OffreAbonnement } from "../../services/offresService";
 import { LABELS_SECTEUR_ACTIVITE, OPTIONS_SECTEUR_ACTIVITE, maxSecteurs } from "../../lib/secteurActivite";
@@ -16,7 +17,7 @@ function messageErreur(err: unknown): string {
 }
 
 export function ParametresPage() {
-  const { entreprise, offre, rafraichirProfil } = useAuth();
+  const { entreprise, offre, utilisateur, rafraichirProfil } = useAuth();
   const principal = entreprise?.secteur_activite;
   const [secteursActifs, setSecteursActifs] = useState<SecteurActivite[]>(() => {
     if (!entreprise) return [];
@@ -189,6 +190,9 @@ export function ParametresPage() {
           {enCours ? "Enregistrement..." : enregistre ? "Enregistré ✓" : "Enregistrer"}
         </button>
       </div>
+
+      {/* Clés de comptes marchands : réservé au gérant (jamais délégable). */}
+      {utilisateur?.role === "gerant" && <CartePaiementsElectroniques />}
     </div>
   );
 }

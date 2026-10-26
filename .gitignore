@@ -3,3 +3,5 @@ dist
 .env
 dist-ssr
 *.local
+
+supabase/.temp/
