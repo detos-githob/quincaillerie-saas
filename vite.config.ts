@@ -61,6 +61,11 @@ export default defineConfig({
         // Les données (Supabase) restent gérées par la file d'attente
         // applicative (src/services/offlineQueue.ts), pas par le cache HTTP.
         globPatterns: ["**/*.{js,css,html,svg,png,ico}"],
+        // Nouvelle version : elle remplace immédiatement l'ancienne et
+        // les fichiers des versions précédentes sont effacés de l'appareil.
+        skipWaiting: true,
+        clientsClaim: true,
+        cleanupOutdatedCaches: true,
         // Les captures d'écran du manifeste ne servent qu'à l'installation :
         // inutile de les précharger sur chaque appareil.
         globIgnores: ["**/screenshots/**"],

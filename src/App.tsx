@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./hooks/useAuth";
 import { ProtectedRoute } from "./routes/ProtectedRoute";
 import { AppShell } from "./components/layout/AppShell";
+import { CLE_RECHARGEMENT, rechargerUneFois } from "./lib/miseAJour";
 
 /**
  * Chargement à la demande : chaque page n'est téléchargée que lorsqu'on
@@ -12,7 +13,19 @@ import { AppShell } from "./components/layout/AppShell";
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function page<M extends Record<string, any>>(charger: () => Promise<M>, nom: keyof M) {
-  return lazy(() => charger().then((m) => ({ default: m[nom] as ComponentType })));
+  return lazy(() =>
+    charger()
+      .then((m) => {
+        sessionStorage.removeItem(CLE_RECHARGEMENT);
+        return { default: m[nom] as ComponentType };
+      })
+      .catch((erreur) => {
+        // Après une mise en ligne, l'ancien fichier de la page n'existe plus :
+        // on recharge une seule fois pour récupérer la nouvelle version.
+        if (rechargerUneFois()) return new Promise<never>(() => {});
+        throw erreur;
+      })
+  );
 }
 
 const LoginPage = page(() => import("./features/auth/LoginPage"), "LoginPage");
