@@ -68,8 +68,24 @@ export default defineConfig({
         cleanupOutdatedCaches: true,
         // Les captures d'écran du manifeste ne servent qu'à l'installation :
         // inutile de les précharger sur chaque appareil.
-        globIgnores: ["**/screenshots/**"],
+        // Le lecteur PDF (pdf.js) ne sert qu'à la page Support : il est
+        // téléchargé à la première ouverture d'un guide, pas à l'installation.
+        // Un guide PDF ouvert dans un onglet ne doit pas être remplacé par l'appli.
+        navigateFallbackDenylist: [/^\/guides\//],
+        globIgnores: ["**/screenshots/**", "**/assets/pdf-*.js"],
         runtimeCaching: [
+          {
+            // Lecteur PDF et guides livrés avec l'appli : gardés après la
+            // première lecture pour rester consultables hors connexion.
+            urlPattern: ({ url, sameOrigin }) =>
+              sameOrigin && (/^\/assets\/pdf[-.]/.test(url.pathname) || /^\/guides\/.+\.pdf$/.test(url.pathname)),
+            handler: "CacheFirst",
+            options: {
+              cacheName: "akweo-guides",
+              expiration: { maxEntries: 12, maxAgeSeconds: 60 * 60 * 24 * 30 },
+              cacheableResponse: { statuses: [200] },
+            },
+          },
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
             handler: "StaleWhileRevalidate",

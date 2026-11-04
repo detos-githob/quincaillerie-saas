@@ -1,3 +1,25 @@
+# Modifications du 04/11/2026 — Page Support modifiable + guide PDF
+
+## À faire AVANT de déployer
+1. Exécuter `supabase/migration_support_editable.sql` dans le SQL Editor Supabase
+   (après `migration_admin_paiements_comptes.sql`). Elle crée aussi le bucket
+   Storage public `support` (PDF, 20 Mo max) et ses règles d'accès.
+2. Vérifier dans Supabase > Storage que le bucket `support` apparaît.
+
+## Contenu
+- Page Support lue en base : message d'accueil, WhatsApp, téléphone, email, horaires,
+  questions fréquentes (dépliables) et guides PDF.
+- Guides : bouton « Lire ici » (lecteur intégré, fonctionne aussi sur Android) et
+  « Télécharger ». Le « Guide de démarrage » est livré avec l'appli
+  (`public/guides/guide-demarrage-akweo.pdf`).
+- Admin > onglet « Page Support » : modifier les coordonnées, ajouter / remplacer /
+  masquer / supprimer / réordonner les guides (envoi de PDF) et les questions.
+- Sécurité : écriture réservée au super admin par la base (RLS) et par Storage ;
+  un guide ne peut pointer que vers un PDF du bucket ou de l'appli (aucun lien externe) ;
+  le fichier envoyé est vérifié (vrai PDF, 20 Mo max).
+- Le lecteur PDF (pdf.js) n'est téléchargé qu'à la première ouverture d'un guide ;
+  le guide reste ensuite lisible hors connexion.
+
 # Modifications du 29/09/2026
 
 ## À faire AVANT de déployer

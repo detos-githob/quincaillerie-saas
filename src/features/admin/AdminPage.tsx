@@ -1,5 +1,6 @@
 import { OngletMoyensPaiement } from "./OngletMoyensPaiement";
 import { OngletInactifs } from "./OngletInactifs";
+import { OngletSupport } from "./OngletSupport";
 import { useEffect, useMemo, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { Building2, X, Bell } from "lucide-react";
@@ -13,7 +14,7 @@ import { OngletOffres } from "./OngletOffres";
 import { OngletPromotions } from "./OngletPromotions";
 import { OngletCommissions } from "./OngletCommissions";
 
-type Onglet = "entreprises" | "offres" | "promotions" | "commissions" | "paiements" | "inactifs";
+type Onglet = "entreprises" | "offres" | "promotions" | "commissions" | "paiements" | "inactifs" | "support";
 const ONGLETS: [Onglet, string][] = [
   ["entreprises", "Entreprises"],
   ["offres", "Offres et tarifs"],
@@ -21,6 +22,7 @@ const ONGLETS: [Onglet, string][] = [
   ["commissions", "Commissions"],
   ["paiements", "Moyens de paiement"],
   ["inactifs", "Comptes inactifs"],
+  ["support", "Page Support"],
 ];
 
 const MS_48H = 48 * 60 * 60 * 1000;
@@ -37,7 +39,11 @@ export function AdminPage() {
   const [chargement, setChargement] = useState(true);
   const [entrepriseEnEdition, setEntrepriseEnEdition] = useState<Entreprise | null>(null);
   const [secteurFiltre, setSecteurFiltre] = useState<SecteurActivite | "tous">("tous");
-  const [onglet, setOnglet] = useState<Onglet>("entreprises");
+  // Onglet ouvert directement depuis un lien (ex. /admin?onglet=support).
+  const [onglet, setOnglet] = useState<Onglet>(() => {
+    const demande = new URLSearchParams(window.location.search).get("onglet");
+    return ONGLETS.some(([id]) => id === demande) ? (demande as Onglet) : "entreprises";
+  });
   const [offres, setOffres] = useState<OffreAbonnement[]>([]);
 
   useEffect(() => {
@@ -228,6 +234,11 @@ export function AdminPage() {
       {onglet === "inactifs" && (
         <main className="max-w-4xl mx-auto px-4 py-5">
           <OngletInactifs />
+        </main>
+      )}
+      {onglet === "support" && (
+        <main className="max-w-4xl mx-auto px-4 py-5">
+          <OngletSupport />
         </main>
       )}
       {onglet === "commissions" && (

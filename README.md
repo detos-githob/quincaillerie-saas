@@ -104,6 +104,8 @@ suite.
      (MTN, Moov, Celtiis) sur le compte marchand de chaque entreprise
    - `migration_admin_paiements_comptes.sql` — moyens de paiement des
      abonnements gérés par le super admin, suppression des comptes inactifs
+   - `migration_support_editable.sql` — page Support modifiable par le
+     super admin (coordonnées, FAQ, guides PDF) + bucket Storage `support`
 
    ⚠️ Les 3 migrations `ledger_creances` / `annulation_avoir` /
    `dashboard_decisionnel` touchent la fonction `creer_vente` en cascade
