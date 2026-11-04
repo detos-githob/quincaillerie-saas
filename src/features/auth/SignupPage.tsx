@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { supabase } from "../../lib/supabaseClient";
@@ -7,6 +7,7 @@ import { POLITIQUE_MOT_DE_PASSE, validerMotDePasse } from "../../lib/security";
 import { CGU_VERSION } from "../../lib/legal";
 import { AuthLayout } from "../../components/layout/AuthLayout";
 import { CaseAcceptationCgu } from "./CaseAcceptationCgu";
+import { Captcha, CLE_CAPTCHA, type CaptchaRef } from "../../components/ui/Captcha";
 import type { SecteurActivite } from "../../types";
 
 export function SignupPage() {
@@ -26,6 +27,8 @@ export function SignupPage() {
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
   const [confirmationEnvoyee, setConfirmationEnvoyee] = useState(false);
+  const [jetonCaptcha, setJetonCaptcha] = useState<string | null>(null);
+  const captcha = useRef<CaptchaRef>(null);
 
   async function gererSoumission(e: FormEvent) {
     e.preventDefault();
@@ -33,6 +36,11 @@ export function SignupPage() {
 
     if (!cguAcceptees) {
       setErreur("Tu dois accepter les conditions générales pour créer ton entreprise.");
+      return;
+    }
+
+    if (telephoneEntreprise.replace(/[^0-9]/g, "").length < 8) {
+      setErreur("Indique un numéro de téléphone valide (8 chiffres minimum).");
       return;
     }
 
@@ -48,8 +56,10 @@ export function SignupPage() {
       const { erreur: erreurInscription, confirmationRequise } = await inscription(
         email,
         motDePasse,
-        CGU_VERSION
+        CGU_VERSION,
+        jetonCaptcha ?? undefined
       );
+      captcha.current?.reinitialiser();
       if (erreurInscription) {
         setErreur(erreurInscription);
         return;
@@ -142,6 +152,9 @@ export function SignupPage() {
             <input
               value={telephoneEntreprise}
               onChange={(e) => setTelephoneEntreprise(e.target.value)}
+              required
+              type="tel"
+              inputMode="tel"
               className="w-full mt-1 border border-stone-300 rounded-lg py-2.5 px-3 text-sm"
               placeholder="+229 ..."
             />
@@ -200,6 +213,8 @@ export function SignupPage() {
 
         <CaseAcceptationCgu cochee={cguAcceptees} onChange={setCguAcceptees} />
 
+        <Captcha ref={captcha} onJeton={setJetonCaptcha} />
+
         {erreur && (
           <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
             {erreur}
@@ -208,7 +223,7 @@ export function SignupPage() {
 
         <button
           type="submit"
-          disabled={enCours}
+          disabled={enCours || (!!CLE_CAPTCHA && !jetonCaptcha)}
           className="w-full bg-amber-500 hover:bg-amber-600 text-stone-900 font-semibold py-3 rounded-xl transition-colors disabled:opacity-60"
         >
           {enCours ? "Création..." : "Créer mon entreprise"}

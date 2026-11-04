@@ -3,7 +3,7 @@
 // MTN MoMo des ventes et ajoute Kkiapay (fenêtre de paiement côté navigateur,
 // vérification côté serveur avec la clé privée).
 
-import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.113.0";
 import { dechiffrer } from "./chiffrement.ts";
 import { ErreurFournisseur, validerCles, type Cles, type CompteMarchand } from "./paiementsMarchands.ts";
 

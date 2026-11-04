@@ -1,3 +1,8 @@
+-- !!! DÉJÀ EXÉCUTÉE EN PRODUCTION : NE PAS RELANCER !!!
+-- Elle remplace des fonctions protégées par des versions plus anciennes
+-- sans contrôle d'accès. Après toute migration, lancer
+-- supabase/verification_securite.sql (résultat attendu : aucune ligne).
+
 -- =====================================================================
 -- MIGRATION : PERMISSIONS INDIVIDUELLES PAR MEMBRE D'ÉQUIPE
 -- À exécuter après migration_dashboard_decisionnel.sql.

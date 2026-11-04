@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
-import { UserPlus, X, Users as UsersIcon, Lock, ShieldCheck } from "lucide-react";
-import { listerEquipe, creerMembreEquipe } from "../../services/equipeService";
+import { UserPlus, X, Users as UsersIcon, Lock, ShieldCheck, UserX, UserCheck } from "lucide-react";
+import { listerEquipe, creerMembreEquipe, changerEtatMembre } from "../../services/equipeService";
 import { chargerSurchargesUtilisateur, definirPermissionsUtilisateur } from "../../services/permissionsService";
 import { useAuth } from "../../hooks/useAuth";
 import { limiteEquipe } from "../../lib/abonnement";
@@ -23,6 +23,21 @@ export function EquipePage() {
   const [chargement, setChargement] = useState(true);
   const [modaleOuverte, setModaleOuverte] = useState(false);
   const [membrePourAcces, setMembrePourAcces] = useState<Utilisateur | null>(null);
+  const [erreurEtat, setErreurEtat] = useState<string | null>(null);
+  const [membreEnCours, setMembreEnCours] = useState<string | null>(null);
+
+  async function basculerMembre(membre: Utilisateur) {
+    setErreurEtat(null);
+    setMembreEnCours(membre.id);
+    try {
+      await changerEtatMembre(membre.id, !membre.actif);
+      setEquipe(await listerEquipe());
+    } catch (e: any) {
+      setErreurEtat(e.message || "Action impossible.");
+    } finally {
+      setMembreEnCours(null);
+    }
+  }
 
   useEffect(() => {
     listerEquipe()
@@ -35,7 +50,10 @@ export function EquipePage() {
   }
 
   const limite = limiteEquipe(offre);
-  const plafondAtteint = equipe.length >= limite;
+  // Seuls les comptes actifs comptent : désactiver un membre libère sa place.
+  const actifs = equipe.filter((m) => m.actif !== false).length;
+  const plafondAtteint = actifs >= limite;
+  const estGerant = utilisateur?.role === "gerant";
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-5">
@@ -50,8 +68,9 @@ export function EquipePage() {
         </button>
       </div>
       <p className="text-xs text-stone-400 mb-4">
-        {equipe.length} / {limite} compte{limite > 1 ? "s" : ""} utilisé{equipe.length > 1 ? "s" : ""}
+        {actifs} / {limite} compte{limite > 1 ? "s" : ""} actif{actifs > 1 ? "s" : ""}
       </p>
+      {erreurEtat && <p className="text-sm bg-red-50 text-red-700 rounded-lg px-3 py-2 mb-3">{erreurEtat}</p>}
 
       {plafondAtteint && (
         <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-xl p-3.5 mb-4">
@@ -68,8 +87,8 @@ export function EquipePage() {
 
       <div className="bg-white border border-stone-200 rounded-xl divide-y divide-stone-100">
         {equipe.map((membre) => (
-          <div key={membre.id} className="flex items-center justify-between p-4">
-            <div className="flex items-center gap-3 min-w-0">
+          <div key={membre.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 p-4">
+            <div className="flex items-center gap-3 min-w-0 flex-1 basis-40">
               <span className="flex items-center justify-center w-9 h-9 rounded-full bg-stone-100 shrink-0">
                 <UsersIcon size={16} className="text-stone-400" />
               </span>
@@ -80,10 +99,12 @@ export function EquipePage() {
                     <span className="text-stone-400 font-normal"> (toi)</span>
                   )}
                 </p>
-                <p className="text-xs text-stone-400">{membre.telephone || "—"}</p>
+                <p className="text-xs text-stone-400">
+                  {membre.actif === false ? <span className="font-medium text-red-600">Désactivé</span> : membre.telephone || "—"}
+                </p>
               </div>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex flex-wrap items-center justify-end gap-2 ml-auto">
               <span className="text-xs font-medium text-stone-600 bg-stone-100 px-2 py-1 rounded">
                 {LABELS_ROLE[membre.role] || membre.role}
               </span>
@@ -94,6 +115,18 @@ export function EquipePage() {
                   title="Gérer les accès"
                 >
                   <ShieldCheck size={13} /> Accès
+                </button>
+              )}
+              {estGerant && membre.role !== "gerant" && (
+                <button
+                  onClick={() => basculerMembre(membre)}
+                  disabled={membreEnCours === membre.id}
+                  className={`flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-lg border disabled:opacity-50 ${
+                    membre.actif === false ? "text-emerald-700 border-emerald-300" : "text-red-600 border-red-200"
+                  }`}
+                  title={membre.actif === false ? "Réactiver ce compte" : "Désactiver ce compte (il ne pourra plus se connecter à l'entreprise)"}
+                >
+                  {membre.actif === false ? <><UserCheck size={13} /> Réactiver</> : <><UserX size={13} /> Désactiver</>}
                 </button>
               )}
             </div>

@@ -1,7 +1,7 @@
 // Identification de l'appelant d'une Edge Function (JWT Supabase obligatoire).
 // L'entreprise vient TOUJOURS du profil en base, jamais du corps de la requête.
 
-import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.113.0";
 
 export interface Profil {
   id: string;

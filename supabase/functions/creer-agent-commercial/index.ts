@@ -7,7 +7,7 @@
 //
 // Déploiement : supabase functions deploy creer-agent-commercial
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.113.0";
 import { enTetesCors, reponseJson } from "../_shared/cors.ts";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

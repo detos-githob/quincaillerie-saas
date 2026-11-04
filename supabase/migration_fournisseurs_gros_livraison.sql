@@ -1,3 +1,8 @@
+-- !!! DÉJÀ EXÉCUTÉE EN PRODUCTION : NE PAS RELANCER !!!
+-- Elle remplace des fonctions protégées par des versions plus anciennes
+-- sans contrôle d'accès. Après toute migration, lancer
+-- supabase/verification_securite.sql (résultat attendu : aucune ligne).
+
 -- =====================================================================
 -- MIGRATION : SECTEUR D'ACTIVITÉ + FOURNISSEURS + GROS/DEMI-GROS + LIVRAISON
 -- À exécuter après migration_type_facture.sql.

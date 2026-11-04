@@ -10,7 +10,7 @@
 // extrait seulement la référence, puis on relit le statut réel auprès de
 // l'API MTN authentifiée. Un faux rappel ne peut donc rien valider.
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.113.0";
 import { synchroniserPaiementMomo, type PaiementAbonnement } from "../_shared/synchroniserPaiement.ts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

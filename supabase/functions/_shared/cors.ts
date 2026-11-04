@@ -1,7 +1,7 @@
 // CORS restreint aux origines de l'application (jamais « * » sur des
 // fonctions qui manipulent l'abonnement).
 const ORIGINES = [
-  Deno.env.get("APP_URL") || "https://quincallerie.denistossou.com",
+  Deno.env.get("APP_URL") || "https://akweo.denistossou.com",
   ...(Deno.env.get("APP_URL_DEV") ? [Deno.env.get("APP_URL_DEV")!] : []),
 ];
 

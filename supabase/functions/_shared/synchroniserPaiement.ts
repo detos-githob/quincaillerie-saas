@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.113.0";
 import { consulterPaiement, raisonLisible } from "./momo.ts";
 
 const DELAI_EXPIRATION_MS = 15 * 60 * 1000;

@@ -1,3 +1,8 @@
+-- !!! DÉJÀ EXÉCUTÉE EN PRODUCTION : NE PAS RELANCER !!!
+-- Elle remplace des fonctions protégées par des versions plus anciennes
+-- sans contrôle d'accès. Après toute migration, lancer
+-- supabase/verification_securite.sql (résultat attendu : aucune ligne).
+
 -- =====================================================================
 -- MIGRATION : SECTEUR D'ACTIVITE DE L'ENTREPRISE
 -- À exécuter après migration_depot_boissons.sql, en une fois dans le

@@ -62,20 +62,27 @@ interface ContexteAuth {
   utilisateur: Utilisateur | null;
   entreprise: Entreprise | null;
   estSuperAdmin: boolean;
+  /** Super admin connecté par mot de passe seul : il doit saisir son code (double authentification). */
+  mfaAdminRequise: boolean;
+  /** Compte désactivé par le gérant : plus aucun accès aux données. */
+  compteDesactive: boolean;
   /** Offre d'abonnement de l'entreprise (null : inconnue → accès complet). */
   offre: OffreAbonnement | null;
   /** Fiche d'agent commercial si ce compte en est un. */
   agent: AgentCommercial | null;
   permissions: PermissionsResolues;
   chargement: boolean;
-  connexion: (email: string, motDePasse: string) => Promise<{ erreur: string | null }>;
+  connexion: (email: string, motDePasse: string, captchaToken?: string) => Promise<{ erreur: string | null }>;
   inscription: (
     email: string,
     motDePasse: string,
-    cguVersion: string
+    cguVersion: string,
+    captchaToken?: string
   ) => Promise<{ erreur: string | null; confirmationRequise: boolean }>;
   deconnexion: () => Promise<void>;
   rafraichirProfil: () => Promise<void>;
+  /** Relit les droits super admin (après la saisie du code de double authentification). */
+  rafraichirAdmin: () => Promise<void>;
 }
 
 const AuthContext = createContext<ContexteAuth | undefined>(undefined);
@@ -85,6 +92,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [utilisateur, setUtilisateur] = useState<Utilisateur | null>(null);
   const [entreprise, setEntreprise] = useState<Entreprise | null>(null);
   const [estSuperAdmin, setEstSuperAdmin] = useState(false);
+  const [mfaAdminRequise, setMfaAdminRequise] = useState(false);
+  const [compteDesactive, setCompteDesactive] = useState(false);
   const [offre, setOffre] = useState<OffreAbonnement | null>(null);
   const [agent, setAgent] = useState<AgentCommercial | null>(null);
   const [permissions, setPermissions] = useState<PermissionsResolues>(resoudrePermissions(undefined));
@@ -92,12 +101,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [chargementProfil, setChargementProfil] = useState(false);
 
   async function verifierSuperAdmin(userId: string) {
-    const { data, error } = await supabase.rpc("est_super_admin");
+    const [{ data, error }, mfa] = await Promise.all([
+      supabase.rpc("est_super_admin"),
+      supabase.rpc("super_admin_mfa_requise"),
+    ]);
     if (error && estErreurReseau(error)) {
       setEstSuperAdmin(!!lireProfilEnCache(userId)?.estSuperAdmin);
       return;
     }
     setEstSuperAdmin(!!data);
+    setMfaAdminRequise(!!mfa.data);
   }
 
   function appliquerProfil(p: ProfilEnCache) {
@@ -118,7 +131,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .maybeSingle();
       if (erreurProfil) throw erreurProfil;
 
-      if (profil) {
+      if (profil && (profil as Utilisateur).actif === false) {
+        // Compte désactivé par le gérant : la base ne lui donne plus accès
+        // à rien ; on efface aussi ce que l'appareil gardait en cache.
+        setCompteDesactive(true);
+        setUtilisateur(profil as Utilisateur);
+        setEntreprise(null);
+        setOffre(null);
+        setPermissions(resoudrePermissions(undefined));
+        definirEntrepriseCourante(null);
+        localStorage.removeItem(PREFIXE_PROFIL + userId);
+        await supprimerParPrefixe("cache:").catch(() => undefined);
+      } else if (profil) {
+        setCompteDesactive(false);
         const profilType = profil as Utilisateur;
         const [{ data: entrepriseData, error: erreurEntreprise }, surcharges, admin] = await Promise.all([
           supabase.from("entreprises").select("*").eq("id", profilType.entreprise_id).single(),
@@ -196,6 +221,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUtilisateur(null);
         setEntreprise(null);
         setEstSuperAdmin(false);
+        setMfaAdminRequise(false);
+        setCompteDesactive(false);
         setOffre(null);
         setAgent(null);
         definirEntrepriseCourante(null);
@@ -212,15 +239,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => abonnement.subscription.unsubscribe();
   }, []);
 
-  async function connexion(email: string, motDePasse: string) {
+  async function connexion(email: string, motDePasse: string, captchaToken?: string) {
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password: motDePasse,
+      options: captchaToken ? { captchaToken } : undefined,
     });
     return { erreur: error ? traduireErreurAuth(error.message) : null };
   }
 
-  async function inscription(email: string, motDePasse: string, cguVersion: string) {
+  async function inscription(email: string, motDePasse: string, cguVersion: string, captchaToken?: string) {
     const { data, error } = await supabase.auth.signUp({
       email,
       password: motDePasse,
@@ -237,6 +265,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // de référence reste l'horodatage serveur posé par la RPC
         // enregistrer_acceptation_cgu.
         data: { cgu_version: cguVersion },
+        captchaToken,
       },
     });
     if (error) {
@@ -261,6 +290,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUtilisateur(null);
     setEntreprise(null);
     setEstSuperAdmin(false);
+    setMfaAdminRequise(false);
+    setCompteDesactive(false);
     setOffre(null);
     setAgent(null);
     // Données en cache de ce compte (profil, articles, clients). La file
@@ -275,6 +306,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (session?.user) await chargerProfil(session.user.id);
   }
 
+  async function rafraichirAdmin() {
+    const {
+      data: { session: actuelle },
+    } = await supabase.auth.getSession();
+    if (actuelle?.user) await verifierSuperAdmin(actuelle.user.id);
+  }
+
   return (
     <AuthContext.Provider
       value={{
@@ -282,6 +320,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         utilisateur,
         entreprise,
         estSuperAdmin,
+        mfaAdminRequise,
+        compteDesactive,
         offre,
         agent,
         permissions,
@@ -290,6 +330,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         inscription,
         deconnexion,
         rafraichirProfil,
+        rafraichirAdmin,
       }}
     >
       {children}
@@ -306,6 +347,12 @@ function traduireErreurAuth(message: string): string {
   }
   if (message.includes("Password should be at least")) {
     return "Le mot de passe est trop court.";
+  }
+  if (/captcha/i.test(message)) {
+    return "Vérification anti-robot échouée ou expirée. Coche à nouveau la case, puis réessaie.";
+  }
+  if (/rate limit|too many/i.test(message)) {
+    return "Trop de tentatives. Patiente quelques minutes avant de réessayer.";
   }
   if (message.includes("Email not confirmed")) {
     return "Confirme d'abord ton email grâce au lien reçu, puis reconnecte-toi.";

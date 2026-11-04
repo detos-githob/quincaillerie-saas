@@ -1,7 +1,8 @@
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { useNavigate, Navigate, Link } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { AuthLayout } from "../../components/layout/AuthLayout";
+import { Captcha, CLE_CAPTCHA, type CaptchaRef } from "../../components/ui/Captcha";
 
 export function LoginPage() {
   const { connexion, session, chargement } = useAuth();
@@ -10,6 +11,8 @@ export function LoginPage() {
   const [motDePasse, setMotDePasse] = useState("");
   const [erreur, setErreur] = useState<string | null>(null);
   const [enCours, setEnCours] = useState(false);
+  const [jetonCaptcha, setJetonCaptcha] = useState<string | null>(null);
+  const captcha = useRef<CaptchaRef>(null);
 
   // Cas du lien de confirmation d'email : Supabase établit déjà une
   // session valide en arrivant ici. Inutile de faire ressaisir le mot
@@ -24,8 +27,9 @@ export function LoginPage() {
     e.preventDefault();
     setErreur(null);
     setEnCours(true);
-    const { erreur } = await connexion(email, motDePasse);
+    const { erreur } = await connexion(email, motDePasse, jetonCaptcha ?? undefined);
     setEnCours(false);
+    captcha.current?.reinitialiser();
     if (erreur) {
       setErreur(erreur);
     } else {
@@ -72,6 +76,8 @@ export function LoginPage() {
           />
         </div>
 
+        <Captcha ref={captcha} onJeton={setJetonCaptcha} />
+
         {erreur && (
           <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
             {erreur}
@@ -80,7 +86,7 @@ export function LoginPage() {
 
         <button
           type="submit"
-          disabled={enCours}
+          disabled={enCours || (!!CLE_CAPTCHA && !jetonCaptcha)}
           className="w-full bg-amber-500 hover:bg-amber-600 text-stone-900 font-semibold py-3 rounded-xl transition-colors disabled:opacity-60"
         >
           {enCours ? "Connexion..." : "Se connecter"}

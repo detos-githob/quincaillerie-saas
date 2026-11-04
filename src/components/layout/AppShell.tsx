@@ -34,7 +34,7 @@ import { peutAcceder } from "../../lib/permissions";
 import logoMarque from "../../assets/logo-akweo-mark.png";
 
 export function AppShell() {
-  const { entreprise, utilisateur, estSuperAdmin, agent, offre, permissions, deconnexion } = useAuth();
+  const { entreprise, utilisateur, estSuperAdmin, mfaAdminRequise, agent, offre, permissions, deconnexion } = useAuth();
   const sync = useSyncHorsLigne();
   const installation = useInstallation();
 
@@ -138,13 +138,14 @@ export function AppShell() {
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          {estSuperAdmin && (
+          {(estSuperAdmin || mfaAdminRequise) && (
             <NavLink
               to="/admin"
-              className="p-1.5 rounded text-stone-400 hover:text-stone-100 hover:bg-navy-800"
-              title="Espace administrateur"
+              className="relative p-1.5 rounded text-stone-400 hover:text-stone-100 hover:bg-navy-800"
+              title={mfaAdminRequise ? "Espace administrateur : code de vérification requis" : "Espace administrateur"}
             >
               <ShieldCheck size={16} />
+              {mfaAdminRequise && <span className="absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-amber-400" />}
             </NavLink>
           )}
           {agent && (

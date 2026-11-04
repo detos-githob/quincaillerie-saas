@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { MailCheck } from "lucide-react";
 import { AuthLayout } from "../../components/layout/AuthLayout";
 import { demanderReinitialisationMotDePasse } from "../../services/authService";
+import { Captcha, CLE_CAPTCHA, type CaptchaRef } from "../../components/ui/Captcha";
 
 const DELAI_RENVOI_SECONDES = 60;
 
@@ -10,6 +11,8 @@ export function MotDePasseOubliePage() {
   const location = useLocation();
   const emailInitial = (location.state as { email?: string } | null)?.email ?? "";
   const [email, setEmail] = useState(emailInitial);
+  const [jetonCaptcha, setJetonCaptcha] = useState<string | null>(null);
+  const captcha = useRef<CaptchaRef>(null);
   const [enCours, setEnCours] = useState(false);
   const [envoye, setEnvoye] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -24,10 +27,17 @@ export function MotDePasseOubliePage() {
   async function gererSoumission(e?: { preventDefault(): void }) {
     e?.preventDefault();
     if (attente > 0) return;
+    // Avec la protection anti-robot, un renvoi repasse par le formulaire
+    // (chaque envoi demande une nouvelle vérification).
+    if (CLE_CAPTCHA && !jetonCaptcha) {
+      setEnvoye(false);
+      return;
+    }
     setErreur(null);
     setEnCours(true);
-    const { erreur } = await demanderReinitialisationMotDePasse(email);
+    const { erreur } = await demanderReinitialisationMotDePasse(email, jetonCaptcha ?? undefined);
     setEnCours(false);
+    captcha.current?.reinitialiser();
     if (erreur) {
       setErreur(erreur);
       return;
@@ -85,13 +95,15 @@ export function MotDePasseOubliePage() {
           />
         </div>
 
+        <Captcha ref={captcha} onJeton={setJetonCaptcha} />
+
         {erreur && (
           <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{erreur}</p>
         )}
 
         <button
           type="submit"
-          disabled={enCours}
+          disabled={enCours || (!!CLE_CAPTCHA && !jetonCaptcha)}
           className="w-full bg-amber-500 hover:bg-amber-600 text-stone-900 font-semibold py-3 rounded-xl transition-colors disabled:opacity-60"
         >
           {enCours ? "Envoi..." : "Envoyer le lien"}

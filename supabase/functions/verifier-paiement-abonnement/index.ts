@@ -8,7 +8,7 @@
 //   - prolonge l'abonnement via appliquer_paiement_abonnement()
 //     (atomique, idempotent).
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.113.0";
 import { enTetesCors, reponseJson } from "../_shared/cors.ts";
 import { calculerPrix } from "../_shared/tarifs.ts";
 

@@ -106,6 +106,16 @@ suite.
      abonnements gérés par le super admin, suppression des comptes inactifs
    - `migration_support_editable.sql` — page Support modifiable par le
      super admin (coordonnées, FAQ, guides PDF) + bucket Storage `support`
+   - `migration_securite_critique.sql` — correctifs de sécurité (audit
+     du 04/11/2026) : à exécuter en dernier
+   - `migration_securite_complete.sql` — suite des correctifs de sécurité
+     (fraude caisse, comptes désactivés, abonnement expiré, double
+     authentification du super admin) : après `migration_securite_critique.sql`
+
+   🔒 Après CHAQUE migration, exécute `supabase/verification_securite.sql` :
+   le résultat doit être « No rows returned ». Ne relance jamais une
+   ancienne migration déjà passée (elles portent l'avertissement
+   « NE PAS RELANCER »).
 
    ⚠️ Les 3 migrations `ledger_creances` / `annulation_avoir` /
    `dashboard_decisionnel` touchent la fonction `creer_vente` en cascade

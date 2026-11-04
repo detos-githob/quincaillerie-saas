@@ -36,6 +36,10 @@ export function CompleterInscriptionPage() {
       setErreur("Tu dois accepter les conditions générales pour créer ton entreprise.");
       return;
     }
+    if (telephoneEntreprise.replace(/[^0-9]/g, "").length < 8) {
+      setErreur("Indique un numéro de téléphone valide (8 chiffres minimum).");
+      return;
+    }
     setEnCours(true);
     try {
       const { error } = await supabase.rpc("creer_entreprise_et_gerant", {
@@ -92,6 +96,9 @@ export function CompleterInscriptionPage() {
             <input
               value={telephoneEntreprise}
               onChange={(e) => setTelephoneEntreprise(e.target.value)}
+              required
+              type="tel"
+              inputMode="tel"
               className="w-full mt-1 border border-stone-300 rounded-lg py-2.5 px-3 text-sm"
             />
           </div>

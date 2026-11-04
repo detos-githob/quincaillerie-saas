@@ -1,3 +1,8 @@
+-- !!! DÉJÀ EXÉCUTÉE EN PRODUCTION : NE PAS RELANCER !!!
+-- Elle remplace des fonctions protégées par des versions plus anciennes
+-- sans contrôle d'accès. Après toute migration, lancer
+-- supabase/verification_securite.sql (résultat attendu : aucune ligne).
+
 -- =====================================================================
 -- MIGRATION PHASE 2
 -- À exécuter UNE FOIS dans le SQL Editor de Supabase, en plus du

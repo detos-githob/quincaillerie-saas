@@ -9,7 +9,7 @@
 //
 // Déploiement : npx supabase functions deploy admin-moyens-paiement --use-api
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.113.0";
 import { enTetesCors, reponseJson } from "../_shared/cors.ts";
 import { chiffrer, dechiffrer } from "../_shared/chiffrement.ts";
 import { ErreurFournisseur, testerCompte, type Cles } from "../_shared/paiementsMarchands.ts";

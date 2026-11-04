@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.113.0";
 
 // Les prix ne sont plus écrits dans le code : ils sont dans la table
 // « offres », gérée depuis l'espace super admin. Le calcul (offre + code

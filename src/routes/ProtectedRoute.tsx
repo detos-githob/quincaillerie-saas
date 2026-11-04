@@ -12,7 +12,7 @@ const CHEMINS_EXEMPTES_EXPIRATION = ["/mon-abonnement", "/offres", "/paiement"];
 const LandingPage = lazy(() => import("../features/landing/LandingPage").then((m) => ({ default: m.LandingPage })));
 
 export function ProtectedRoute({ children }: { children: ReactNode }) {
-  const { session, utilisateur, entreprise, estSuperAdmin, agent, offre, permissions, chargement } = useAuth();
+  const { session, utilisateur, entreprise, estSuperAdmin, agent, offre, permissions, chargement, compteDesactive, deconnexion } = useAuth();
   const location = useLocation();
 
   if (chargement) {
@@ -32,6 +32,22 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
       </Suspense>
     ) : (
       <Navigate to="/login" replace />
+    );
+  }
+
+  if (compteDesactive) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-stone-50 px-6 text-center">
+        <div className="max-w-sm space-y-3">
+          <p className="font-display text-2xl font-bold text-stone-900">Compte désactivé</p>
+          <p className="text-sm text-stone-600">
+            Ton accès à l'entreprise a été désactivé par le gérant. Rapproche-toi de lui pour le faire réactiver.
+          </p>
+          <button onClick={() => deconnexion()} className="bg-amber-500 text-stone-900 font-semibold text-sm px-4 py-2.5 rounded-xl">
+            Se déconnecter
+          </button>
+        </div>
+      </div>
     );
   }
 

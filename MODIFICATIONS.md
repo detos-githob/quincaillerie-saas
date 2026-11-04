@@ -1,3 +1,59 @@
+# Modifications du 04/11/2026 (après-midi) — Correctifs de sécurité complets
+
+Suite de l'audit de sécurité. Rapport : « Audit de sécurité AKWEO ».
+
+## Ordre de déploiement (important)
+1. Pousser le code (robocopy → depot → commit → push) et attendre que Cloudflare
+   Pages affiche « Success ».
+2. SQL Editor : exécuter `supabase/migration_securite_critique.sql` (si pas encore
+   fait), puis `supabase/migration_securite_complete.sql`.
+3. Déployer les fonctions Edge (elles utilisent les nouvelles fonctions SQL),
+   dans le dossier `depot` :
+   `npx supabase functions deploy --use-api`
+   PUIS, obligatoirement en second (MTN n'a pas de jeton Supabase) :
+   `npx supabase functions deploy momo-callback --use-api --no-verify-jwt`
+4. Secret Supabase : `npx supabase secrets set APP_URL=https://akweo.denistossou.com`
+5. SQL Editor : exécuter `supabase/verification_securite.sql` → aucune ligne attendue.
+6. Ouvrir l'appli avec ton compte super admin, cliquer sur le bouclier → « Vérification
+   en deux étapes » : scanner le code QR avec Google Authenticator (ou 2FAS) et saisir
+   le code. Sans ce code, l'administration reste fermée.
+7. (Anti-robot) Créer un widget Cloudflare Turnstile (gratuit) pour akweo.denistossou.com :
+   - clé du site → variable `VITE_TURNSTILE_SITE_KEY` dans Cloudflare Pages, puis
+     redéployer ;
+   - ENSUITE seulement : Supabase › Authentication › Attack Protection › activer le
+     CAPTCHA, fournisseur Turnstile, clé secrète.
+   (Dans l'autre ordre, plus personne ne pourrait se connecter.)
+
+## Ce qui change pour les utilisateurs
+- Une vente ne se supprime plus : elle s'annule par un avoir (Factures › Annuler / Avoir).
+- Le vendeur ne peut plus vendre sous le tarif ni accorder de remise : réservé au gérant.
+- Chaque rôle n'écrit que dans ses modules (vendeur : vente, clients, tontines, factures ;
+  magasinier : stock, inventaire, fournisseurs, livraisons ; comptable : clients,
+  tontines, factures, dépenses). Le gérant ajuste toujours les accès par membre.
+- Équipe : le gérant peut désactiver / réactiver un membre ; un compte désactivé ne voit
+  plus rien et ne compte plus dans la limite de l'offre.
+- Abonnement expiré depuis plus de 7 jours ou entreprise suspendue : lecture seule.
+- Inscription : téléphone obligatoire ; un numéro déjà utilisé ne redonne pas d'essai gratuit.
+- Super admin : double authentification obligatoire.
+
+## Détail technique
+- `migration_securite_complete.sql` : contrôle central des écritures (déclencheur
+  `controler_ecriture` sur les tables de gestion), écritures directes retirées sur les
+  pièces comptables, colonnes calculées protégées (stock, soldes, cumul tontine), contrôle
+  des lignes de vente (prix d'achat repris de la fiche, quantité > 0, prix plancher /
+  remise réservés au gérant), verrous de numérotation, `modifier_membre_equipe`,
+  `lier_membre_equipe` (limite atomique), essai unique par téléphone, `est_super_admin()`
+  exige `aal2`.
+- Fonctions Edge : HTML échappé dans les emails admin, limites de débit des demandes
+  Mobile Money (vente : 10/min par entreprise et 3 par numéro en 10 min ; abonnement :
+  5 en 10 min), domaine par défaut akweo.denistossou.com, supabase-js figé en 2.113.0,
+  création de membre via `lier_membre_equipe`.
+- Front : écran « Compte désactivé », vérification en deux étapes du super admin,
+  Turnstile (si `VITE_TURNSTILE_SITE_KEY`), téléphone obligatoire, gestion des membres.
+- `npm audit fix` : DOMPurify 3.4.17 (plus aucune faille dans les dépendances livrées).
+- `supabase/verification_securite.sql` + avertissement « NE PAS RELANCER » en tête des
+  anciennes migrations.
+
 # Modifications du 04/11/2026 — Page Support modifiable + guide PDF
 
 ## À faire AVANT de déployer

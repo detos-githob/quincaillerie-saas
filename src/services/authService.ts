@@ -6,10 +6,14 @@ import { supabase } from "../lib/supabaseClient";
  * existe ou non (protection contre l'énumération des comptes). Seules
  * les erreurs de limitation de débit sont remontées.
  */
-export async function demanderReinitialisationMotDePasse(email: string): Promise<{ erreur: string | null }> {
+export async function demanderReinitialisationMotDePasse(email: string, captchaToken?: string): Promise<{ erreur: string | null }> {
   const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
     redirectTo: `${window.location.origin}/reinitialiser-mot-de-passe`,
+    captchaToken,
   });
+  if (error && /captcha/i.test(error.message)) {
+    return { erreur: "Vérification anti-robot échouée ou expirée. Réessaie." };
+  }
   if (error && (error.status === 429 || /rate limit|security purposes/i.test(error.message))) {
     return { erreur: "Trop de demandes. Patiente quelques minutes avant de réessayer." };
   }

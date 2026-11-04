@@ -15,8 +15,9 @@
 //
 // Déploiement : supabase functions deploy momo-paiement-abonnement
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.113.0";
 import { enTetesCors, reponseJson } from "../_shared/cors.ts";
+import { MESSAGE_TROP_DE_DEMANDES, tropDeDemandes } from "../_shared/limites.ts";
 import { calculerPrix } from "../_shared/tarifs.ts";
 import { MOMO_DEVISE, MOMO_SANDBOX, demanderPaiement } from "../_shared/momo.ts";
 import { normaliserTelephoneBenin } from "../_shared/telephone.ts";
@@ -78,6 +79,11 @@ Deno.serve(async (req: Request) => {
         .maybeSingle();
       if (enCours) {
         return reponseJson(req, { paiementId: enCours.id, dejaEnCours: true });
+      }
+
+      // Au plus 5 demandes de paiement d'abonnement par entreprise en 10 minutes.
+      if (await tropDeDemandes(admin, "paiements_abonnement", { entreprise_id: profil.entreprise_id }, 5, 10)) {
+        return reponseJson(req, { error: MESSAGE_TROP_DE_DEMANDES }, 429);
       }
 
       const { data: paiement, error: erreurInsertion } = await admin

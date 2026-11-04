@@ -7,9 +7,9 @@
 //
 // Déploiement : voir les instructions dans README.md (section "Équipe").
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.113.0";
 
-const APP_URL = Deno.env.get("APP_URL") || "https://quincallerie.denistossou.com";
+const APP_URL = Deno.env.get("APP_URL") || "https://akweo.denistossou.com";
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": APP_URL,
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -74,29 +74,6 @@ Deno.serve(async (req: Request) => {
       return reponseErreur("Seul un gérant peut créer un compte d'équipe.", 403);
     }
 
-    // Plafond de comptes lu dans l'offre de l'entreprise (table « offres »,
-    // modifiable par le super admin), revérifié ici côté serveur.
-    const supabaseService = createClient(supabaseUrl, serviceRoleKey);
-    const { data: limite } = await supabaseService.rpc("limite_utilisateurs_entreprise", {
-      p_entreprise_id: profilAppelant.entreprise_id,
-    });
-    const limiteComptes = Number(limite ?? 2);
-
-    const { count: nombreComptesActuels } = await supabaseAppelant
-      .from("utilisateurs")
-      .select("id", { count: "exact", head: true })
-      .eq("entreprise_id", profilAppelant.entreprise_id);
-
-    if ((nombreComptesActuels ?? 0) >= limiteComptes) {
-      return reponseErreur(
-        `Limite de ${limiteComptes} comptes atteinte pour ton palier d'abonnement. Passe sur une offre supérieure pour ajouter d'autres membres.`,
-        403
-      );
-    }
-
-    // Client "admin" : celui-ci utilise la clé service_role, UNIQUEMENT
-    // côté serveur (jamais transmise au navigateur), pour créer le
-    // compte d'authentification du nouvel employé.
     const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
 
     const { data: nouvelUtilisateur, error: erreurCreation } =
@@ -110,18 +87,19 @@ Deno.serve(async (req: Request) => {
       return reponseErreur(erreurCreation?.message || "Erreur lors de la création du compte.", 400);
     }
 
-    const { error: erreurLien } = await supabaseAdmin.from("utilisateurs").insert({
-      entreprise_id: profilAppelant.entreprise_id,
-      auth_user_id: nouvelUtilisateur.user.id,
-      nom,
-      role,
+    // Rattachement à l'entreprise : la base compte les comptes actifs et
+    // crée le membre sous un même verrou (limite de l'offre jamais dépassée,
+    // même avec plusieurs demandes simultanées).
+    const { error: erreurLien } = await supabaseAdmin.rpc("lier_membre_equipe", {
+      p_entreprise_id: profilAppelant.entreprise_id,
+      p_auth_user_id: nouvelUtilisateur.user.id,
+      p_nom: nom,
+      p_role: role,
     });
 
     if (erreurLien) {
-      // Compte auth créé mais liaison échouée : on nettoie pour éviter
-      // un compte fantôme sans entreprise associée.
       await supabaseAdmin.auth.admin.deleteUser(nouvelUtilisateur.user.id);
-      return reponseErreur(erreurLien.message, 400);
+      return reponseErreur(erreurLien.message, 403);
     }
 
     return new Response(JSON.stringify({ succes: true }), {

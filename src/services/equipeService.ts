@@ -1,6 +1,12 @@
 import { supabase } from "../lib/supabaseClient";
 import type { Utilisateur } from "../types";
 
+/** Désactive ou réactive un membre (gérant uniquement, vérifié par la base). */
+export async function changerEtatMembre(utilisateurId: string, actif: boolean): Promise<void> {
+  const { error } = await supabase.rpc("modifier_membre_equipe", { p_utilisateur_id: utilisateurId, p_actif: actif });
+  if (error) throw new Error(error.message);
+}
+
 export async function listerEquipe(): Promise<Utilisateur[]> {
   const { data, error } = await supabase.from("utilisateurs").select("*").order("nom");
   if (error) throw error;

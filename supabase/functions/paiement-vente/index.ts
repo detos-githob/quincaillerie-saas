@@ -14,6 +14,7 @@
 // Déploiement : npx supabase functions deploy paiement-vente --use-api
 
 import { enTetesCors, reponseJson } from "../_shared/cors.ts";
+import { MESSAGE_TROP_DE_DEMANDES, tropDeDemandes } from "../_shared/limites.ts";
 import { identifierAppelant, peutVendre } from "../_shared/appelant.ts";
 import { dechiffrer } from "../_shared/chiffrement.ts";
 import {
@@ -104,6 +105,14 @@ Deno.serve(async (req: Request) => {
         .gte("created_at", new Date(Date.now() - 90_000).toISOString())
         .order("created_at", { ascending: false }).limit(1).maybeSingle();
       if (recent) return reponseJson(req, { paiement: recent });
+
+      // Au plus 10 demandes par minute pour l'entreprise et 3 par numéro en 10 minutes.
+      if (
+        (await tropDeDemandes(admin, "paiements_vente", { entreprise_id: entrepriseId }, 10, 1)) ||
+        (await tropDeDemandes(admin, "paiements_vente", { entreprise_id: entrepriseId, telephone }, 3, 10))
+      ) {
+        return reponseJson(req, { error: MESSAGE_TROP_DE_DEMANDES }, 429);
+      }
 
       const id = crypto.randomUUID();
       const { error: eIns } = await admin.from("paiements_vente").insert({

@@ -1,3 +1,4 @@
+import { echapperHtml, texteSimple } from "../_shared/html.ts";
 // Supabase Edge Function : notifier-nouvelle-inscription
 //
 // Rôle : recevoir les informations d'une entreprise qui vient de
@@ -72,18 +73,18 @@ Deno.serve(async (req: Request) => {
       ? payload.secteur_activite_autre
       : LABELS_SECTEUR[payload.secteur_activite] || payload.secteur_activite;
 
-  const sujet = `🎉 Nouvelle inscription — ${payload.nom}`;
+  const sujet = `🎉 Nouvelle inscription — ${texteSimple(payload.nom)}`;
   const contenuHtml = `
     <p>Bonjour,</p>
     <p>Une nouvelle entreprise vient de s'inscrire sur Akweo :</p>
     <ul>
-      <li><strong>Nom :</strong> ${payload.nom}</li>
-      <li><strong>Secteur d'activité :</strong> ${libelleSecteur}</li>
-      <li><strong>Régime fiscal :</strong> ${payload.regime_fiscal}</li>
-      <li><strong>Téléphone :</strong> ${payload.telephone || "—"}</li>
+      <li><strong>Nom :</strong> ${echapperHtml(payload.nom)}</li>
+      <li><strong>Secteur d'activité :</strong> ${echapperHtml(libelleSecteur)}</li>
+      <li><strong>Régime fiscal :</strong> ${echapperHtml(payload.regime_fiscal)}</li>
+      <li><strong>Téléphone :</strong> ${echapperHtml(payload.telephone || "—")}</li>
       <li><strong>Inscrite le :</strong> ${new Date(payload.created_at).toLocaleString("fr-FR")}</li>
     </ul>
-    <p>Retrouve-la dans ton espace admin, section "${libelleSecteur}".</p>
+    <p>Retrouve-la dans ton espace admin, section "${echapperHtml(libelleSecteur)}".</p>
   `;
 
   try {

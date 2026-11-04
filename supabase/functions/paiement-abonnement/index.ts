@@ -14,6 +14,7 @@
 // Déploiement : npx supabase functions deploy paiement-abonnement --use-api
 
 import { enTetesCors, reponseJson } from "../_shared/cors.ts";
+import { MESSAGE_TROP_DE_DEMANDES, tropDeDemandes } from "../_shared/limites.ts";
 import { identifierAppelant } from "../_shared/appelant.ts";
 import { calculerPrix } from "../_shared/tarifs.ts";
 import { ErreurFournisseur, fedapayPageDePaiement, lancerPaiement, lireStatut, telephonePour, type Operateur } from "../_shared/paiementsMarchands.ts";
@@ -54,6 +55,11 @@ Deno.serve(async (req: Request) => {
           .eq("statut", "en_attente").gte("created_at", new Date(Date.now() - 120_000).toISOString())
           .limit(1).maybeSingle();
         if (enCours) return reponseJson(req, { paiementId: enCours.id, dejaEnCours: true });
+      }
+
+      // Au plus 5 demandes de paiement d'abonnement par entreprise en 10 minutes.
+      if (await tropDeDemandes(admin, "paiements_abonnement", { entreprise_id: profil.entreprise_id }, 5, 10)) {
+        return reponseJson(req, { error: MESSAGE_TROP_DE_DEMANDES }, 429);
       }
 
       const { data: paiement, error: eIns } = await admin.from("paiements_abonnement").insert({

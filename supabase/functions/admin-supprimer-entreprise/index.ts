@@ -9,7 +9,7 @@
 //
 // Déploiement : npx supabase functions deploy admin-supprimer-entreprise --use-api
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.113.0";
 import { enTetesCors, reponseJson } from "../_shared/cors.ts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

@@ -11,7 +11,8 @@
 // (CRON_SECRET), pas par l'authentification Supabase classique,
 // puisqu'elle est appelée depuis la base de données elle-même.
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { echapperHtml, texteSimple } from "../_shared/html.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.113.0";
 
 interface Entreprise {
   id: string;
@@ -99,17 +100,17 @@ Deno.serve(async (req: Request) => {
     if ((statut === "alerte" || statut === "expire") && !dejaAlerteAujourdhui) {
       const sujet =
         statut === "expire"
-          ? `⛔ Abonnement expiré — ${entreprise.nom}`
-          : `⚠️ Abonnement bientôt expiré — ${entreprise.nom}`;
+          ? `⛔ Abonnement expiré — ${texteSimple(entreprise.nom)}`
+          : `⚠️ Abonnement bientôt expiré — ${texteSimple(entreprise.nom)}`;
 
       const contenuHtml = `
         <p>Bonjour,</p>
-        <p>L'abonnement de <strong>${entreprise.nom}</strong> ${
+        <p>L'abonnement de <strong>${echapperHtml(entreprise.nom)}</strong> ${
         statut === "expire"
           ? `est expiré depuis ${Math.abs(joursRestants!)} jour(s).`
           : `expire dans ${joursRestants} jour(s) (le ${entreprise.date_expiration_abonnement}).`
       }</p>
-        <p>Palier : ${entreprise.plan_abonnement} — Périodicité : ${entreprise.periodicite_abonnement || "—"}</p>
+        <p>Palier : ${echapperHtml(entreprise.plan_abonnement)} — Périodicité : ${echapperHtml(entreprise.periodicite_abonnement || "—")}</p>
         <p>Pense à contacter le gérant pour le renouvellement, ou ajuste l'abonnement depuis ton espace admin.</p>
       `;
 

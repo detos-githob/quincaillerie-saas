@@ -1,6 +1,7 @@
 import { OngletMoyensPaiement } from "./OngletMoyensPaiement";
 import { OngletInactifs } from "./OngletInactifs";
 import { OngletSupport } from "./OngletSupport";
+import { VerificationDeuxEtapes } from "./VerificationDeuxEtapes";
 import { useEffect, useMemo, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { Building2, X, Bell } from "lucide-react";
@@ -34,7 +35,7 @@ function estRecente(entreprise: Entreprise): boolean {
 }
 
 export function AdminPage() {
-  const { estSuperAdmin, chargement: chargementAuth } = useAuth();
+  const { estSuperAdmin, mfaAdminRequise, chargement: chargementAuth } = useAuth();
   const [entreprises, setEntreprises] = useState<Entreprise[]>([]);
   const [chargement, setChargement] = useState(true);
   const [entrepriseEnEdition, setEntrepriseEnEdition] = useState<Entreprise | null>(null);
@@ -99,6 +100,10 @@ export function AdminPage() {
   );
 
   const nombreNotifications = inscriptionsRecentes.length + abonnementsARenouveler.length;
+
+  if (!chargementAuth && !estSuperAdmin && mfaAdminRequise) {
+    return <VerificationDeuxEtapes />;
+  }
 
   if (!chargementAuth && !estSuperAdmin) {
     return <Navigate to="/" replace />;
