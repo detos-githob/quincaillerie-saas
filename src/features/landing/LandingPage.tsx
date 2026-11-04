@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import logoAkweo from "../../assets/logo-akweo.png";
 import logoMarque from "../../assets/logo-akweo-mark.png";
+import logoTontine from "../../assets/logo-akweo-tontine.png";
 import { PolicesAkweo } from "../../components/layout/AuthLayout";
 import { useInstallation } from "../../hooks/useInstallation";
 import { avantagesAffiches, economieAnnuelle, listerOffresPubliques, type OffreAbonnement } from "../../services/offresService";
@@ -487,8 +488,8 @@ function Tontine() {
           <CarteTontine />
         </div>
         <div className="order-1 lg:order-2">
-          <img src={logoMarque} alt="" className="h-12 w-auto" />
-          <h2 className="mt-4 text-5xl sm:text-6xl font-bold leading-[0.98] text-[#0E1424]">
+          <img src={logoTontine} alt="Akweo" width={480} height={346} loading="lazy" className="h-20 sm:h-24 w-auto" />
+          <h2 className="mt-6 text-5xl sm:text-6xl font-bold leading-[0.98] text-[#0E1424]">
             La tontine de vos clients, sans le cahier.
           </h2>
           <p className="mt-5 text-lg text-stone-700 max-w-lg">
