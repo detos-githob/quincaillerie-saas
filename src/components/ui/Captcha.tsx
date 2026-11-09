@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 
 /**
  * Protection anti-robot (Cloudflare Turnstile) pour l'inscription, la
@@ -50,10 +50,15 @@ export const Captcha = forwardRef<CaptchaRef, { onJeton: (jeton: string | null) 
   const widget = useRef<string | null>(null);
   const rappel = useRef(onJeton);
   rappel.current = onJeton;
+  const [etat, setEtat] = useState<"attente" | "ok" | "erreur">("attente");
+  const signaler = (jeton: string | null, nouvelEtat: "attente" | "ok" | "erreur") => {
+    setEtat(nouvelEtat);
+    rappel.current(jeton);
+  };
 
   useImperativeHandle(ref, () => ({
     reinitialiser: () => {
-      rappel.current(null);
+      signaler(null, "attente");
       if (widget.current && window.turnstile) window.turnstile.reset(widget.current);
     },
   }));
@@ -68,12 +73,12 @@ export const Captcha = forwardRef<CaptchaRef, { onJeton: (jeton: string | null) 
           sitekey: CLE_CAPTCHA,
           language: "fr",
           appearance: "interaction-only",
-          callback: (jeton: string) => rappel.current(jeton),
-          "expired-callback": () => rappel.current(null),
-          "error-callback": () => rappel.current(null),
+          callback: (jeton: string) => signaler(jeton, "ok"),
+          "expired-callback": () => signaler(null, "attente"),
+          "error-callback": () => signaler(null, "erreur"),
         });
       })
-      .catch(() => rappel.current(null));
+      .catch(() => signaler(null, "erreur"));
     return () => {
       actif = false;
       if (widget.current && window.turnstile) window.turnstile.remove(widget.current);
@@ -82,5 +87,15 @@ export const Captcha = forwardRef<CaptchaRef, { onJeton: (jeton: string | null) 
   }, []);
 
   if (!CLE_CAPTCHA) return null;
-  return <div ref={zone} className="flex justify-center min-h-0" />;
+  return (
+    <div>
+      <div ref={zone} className="flex justify-center min-h-0" />
+      {etat === "attente" && <p className="text-[11px] text-center text-stone-400">Vérification de sécurité en cours…</p>}
+      {etat === "erreur" && (
+        <p className="text-xs text-center text-red-600">
+          La vérification anti-robot n'a pas abouti. Vérifie ta connexion internet, puis recharge la page.
+        </p>
+      )}
+    </div>
+  );
 });
